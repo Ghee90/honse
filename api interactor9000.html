@@ -1,0 +1,2122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spread — Dispatch Command Center</title>
+<style>
+:root {
+  --bg: #0b0f17;
+  --bg-elev: #121826;
+  --panel: #161e2e;
+  --panel-alt: #1c263b;
+  --ink: #eef2ff;
+  --ink-soft: #cbd5e1;
+  --mute: #8492a6;
+  --line: #28354f;
+  --acc: #3b82f6;
+  --acc-hover: #2563eb;
+  --acc-bg: rgba(59, 130, 246, 0.15);
+  --good: #22c55e;
+  --good-bg: rgba(34, 197, 94, 0.14);
+  --warn: #f59e0b;
+  --warn-bg: rgba(245, 158, 11, 0.15);
+  --bad: #ef4444;
+  --bad-bg: rgba(239, 68, 68, 0.15);
+  --cyan: #06b6d4;
+  --cyan-bg: rgba(6, 182, 212, 0.15);
+  --purple: #a855f7;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+  color-scheme: dark;
+}
+body.light {
+  --bg: #f1f5f9;
+  --bg-elev: #ffffff;
+  --panel: #ffffff;
+  --panel-alt: #f8fafc;
+  --ink: #0f172a;
+  --ink-soft: #334155;
+  --mute: #64748b;
+  --line: #e2e8f0;
+  --acc: #2563eb;
+  --acc-hover: #1d4ed8;
+  --acc-bg: #dbeafe;
+  --good: #16a34a;
+  --good-bg: #dcfce7;
+  --warn: #d97706;
+  --warn-bg: #fef3c7;
+  --bad: #dc2626;
+  --bad-bg: #fee2e2;
+  --cyan: #0891b2;
+  --cyan-bg: #cffafe;
+  --purple: #7e22ce;
+  --shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 13.5px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button {
+  background: var(--panel-alt);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 11px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.14s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+button:hover:not(:disabled) { border-color: var(--acc); background: var(--acc-bg); }
+button.pri { background: var(--acc); border-color: var(--acc); color: #fff; font-weight: 600; }
+button.pri:hover:not(:disabled) { background: var(--acc-hover); }
+button.good-btn { background: var(--good-bg); border-color: var(--good); color: var(--good); font-weight: 600; }
+button.warn-btn { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); font-weight: 600; }
+button.bad-btn { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+button.sm { padding: 3px 8px; font-size: 12px; border-radius: 6px; }
+button:disabled { opacity: 0.42; cursor: not-allowed; }
+input, select, textarea {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 5px 9px;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--acc); border-color: transparent; }
+textarea { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+
+/* Top Header */
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: var(--shadow);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  margin-right: 6px;
+}
+.brand-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 10px var(--acc);
+}
+.sp { flex: 1; }
+.divider { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--acc-bg);
+  color: var(--acc);
+  white-space: nowrap;
+}
+.badge.good { background: var(--good-bg); color: var(--good); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+.badge.cyan { background: var(--cyan-bg); color: var(--cyan); }
+.badge.mute { background: var(--panel-alt); color: var(--mute); border: 1px solid var(--line); }
+
+.good-txt { color: var(--good); }
+.warn-txt { color: var(--warn); }
+.bad-txt { color: var(--bad); }
+.mute-txt { color: var(--mute); }
+
+/* Banner & Mental Model Guide */
+#keyBanner {
+  background: var(--bad-bg);
+  color: var(--bad);
+  border-bottom: 1px solid var(--bad);
+  padding: 10px 16px;
+  font-weight: 600;
+  display: none;
+}
+#guideBox {
+  margin: 12px 16px 0;
+  background: linear-gradient(135deg, var(--panel), var(--panel-alt));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+.guide-step {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+}
+.guide-step b { display: block; margin-bottom: 3px; color: var(--ink); font-size: 13px; }
+
+/* Hero KPI Strip */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  padding: 12px 16px;
+}
+.kpi {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.kpi-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mute);
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.kpi-val {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 4px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-sub { font-size: 12px; color: var(--mute); }
+
+/* Gauges & Progress Bars */
+.gauge-track {
+  position: relative;
+  height: 8px;
+  background: var(--bg);
+  border-radius: 99px;
+  overflow: visible;
+  margin: 7px 0 5px;
+  border: 1px solid var(--line);
+}
+.gauge-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.25s ease;
+}
+.gauge-mark {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--ink);
+  z-index: 2;
+}
+.gauge-mark::after {
+  content: "90%";
+  position: absolute;
+  top: -15px;
+  left: -11px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+/* Pipeline Funnel Pills */
+.funnel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.f-pill {
+  flex: 1;
+  min-width: 68px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 7px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.f-pill:hover { border-color: var(--acc); }
+.f-pill b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
+.f-pill span { font-size: 10.5px; color: var(--mute); display: block; }
+
+/* Main 2-Column Layout */
+main {
+  display: grid;
+  grid-template-columns: minmax(390px, 4.4fr) 7.6fr;
+  gap: 12px;
+  padding: 0 16px 24px;
+  align-items: start;
+}
+@media (max-width: 1080px) {
+  main { grid-template-columns: 1fr; }
+}
+.card-box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 13px 15px;
+  margin-bottom: 12px;
+}
+.card-box h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.row { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 6px 0; }
+
+/* Bot Controller */
+.bot-box {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08), var(--panel));
+}
+.bot-btns {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.bot-btns button { justify-content: center; padding: 7px 10px; }
+
+/* Map */
+#mapWrap {
+  position: relative;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+#map { width: 100%; height: auto; display: block; max-height: 490px; }
+#map text { font-size: 7.2px; fill: var(--ink-soft); pointer-events: none; font-weight: 500; }
+#map .city-hit { cursor: pointer; }
+#map .city-hit:hover { stroke: var(--acc); stroke-width: 1.5px; }
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--mute);
+  margin-top: 8px;
+}
+.leg-item { display: inline-flex; align-items: center; gap: 5px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.line-swatch { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* Brain Feed */
+.brain-list {
+  max-height: 290px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.brain-item {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--acc);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.brain-item.good { border-left-color: var(--good); }
+.brain-item.warn { border-left-color: var(--warn); }
+.brain-item.bad { border-left-color: var(--bad); }
+.brain-item.mute { border-left-color: var(--mute); opacity: 0.85; }
+.brain-top { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; margin-bottom: 2px; }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.tabs button {
+  background: var(--panel);
+  padding: 7px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+.tabs button.on {
+  background: var(--acc);
+  border-color: var(--acc);
+  color: #fff;
+}
+.tab-cnt {
+  background: rgba(255, 255, 255, 0.16);
+  padding: 0 6px;
+  border-radius: 99px;
+  font-size: 11px;
+}
+.tabs button:not(.on) .tab-cnt { background: var(--panel-alt); color: var(--mute); }
+.tab-pane { display: none; }
+.tab-pane.on { display: block; }
+
+/* Tables & Cards */
+.scroll-area { max-height: 70vh; overflow-y: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td {
+  text-align: left;
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+th {
+  color: var(--mute);
+  font-weight: 600;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 3;
+}
+tr:hover td { background: rgba(148, 163, 184, 0.05); }
+
+.req-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.note-box {
+  background: var(--warn-bg);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin: 7px 0;
+  font-size: 12.5px;
+}
+.waterfall-row {
+  display: grid;
+  grid-template-columns: 165px 60px 1fr 105px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.wf-bar-bg { height: 8px; background: var(--bg); border-radius: 99px; overflow: hidden; }
+.wf-bar { height: 100%; border-radius: 99px; }
+
+.filter-bar { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; align-items: center; }
+.chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.chip.on { background: var(--acc-bg); border-color: var(--acc); color: var(--acc); font-weight: 600; }
+
+pre {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  overflow: auto;
+  max-height: 280px;
+  font-size: 12px;
+}
+#toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  max-width: 440px;
+  background: var(--ink);
+  color: var(--bg);
+  padding: 10px 15px;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  display: none;
+  z-index: 50;
+  font-weight: 500;
+  white-space: pre-wrap;
+}
+label.ck { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<div id="keyBanner"></div>
+
+<header>
+  <div class="brand">
+    <span class="brand-dot"></span>
+    <span>Spread Command Center</span>
+  </div>
+  <select id="worldSel" title="Switch active world" style="min-width:265px"></select>
+  <button id="bRenameWorld" class="sm" title="Give this world a custom human-readable name">✏️ Rename</button>
+  <button id="bRefresh" class="sm" title="Refresh world state">↻ Sync</button>
+  <span class="badge" id="stBadge">connecting…</span>
+  <span class="mute-txt" id="rateTxt" style="font-size:12px"></span>
+
+  <span class="sp"></span>
+
+  <span class="mute-txt" style="font-size:12px">New World:</span>
+  <select id="nwLevel"></select>
+  <input id="nwName" placeholder="name (e.g. Aurora)" size="13" title="Optional human-readable name for the world or 5-week pack">
+  <input id="nwSeed" placeholder="seed (e.g. spread-1)" size="13">
+  <label class="ck" title="Official Leaderboard Run: secret server seed, counts toward season score, cannot fork or reveal">
+    <input type="checkbox" id="nwBoard"> Ranking Run
+  </label>
+  <button id="bCreate" class="pri">+ Create</button>
+  <div class="divider"></div>
+  <button id="bAnalytics" class="sm" style="border-color:var(--acc);color:var(--acc);font-weight:600" title="Open visual post-run P&L, quoting, and corridor analytics">📊 Post-Run Analytics</button>
+  <button id="bFork" class="sm" title="Clone this practice world at the current minute to test an alternative strategy">⑂ Fork</button>
+  <button id="bDelete" class="sm bad-btn" title="Delete world and free practice slot">✕ Delete</button>
+  <button id="bGuide" class="sm" title="Toggle mental model guide">? How It Works</button>
+  <button id="bTheme" class="sm" title="Switch dark/light theme">◐</button>
+</header>
+
+<section id="guideBox" style="display:none">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <b style="font-size:14px">How the Spread Car-Dispatch Challenge Works</b>
+    <button class="sm" onclick="toggleGuide(false)">Got it ✕</button>
+  </div>
+  <div class="guide-grid">
+    <div class="guide-step">
+      <b>1. Dealers Ask for Quotes (Mon–Fri)</b>
+      You have 15 world-minutes to price `same_day`, `next_day`, or `within_3_days`. At Level 7–8 there is a severe driver shortage: competitor prices are <b>+25% to +54% above list</b>. Never leave a request unquoted (costs goodwill) — quote <b>4.5× list</b> to politely decline bad/risky routes for free!
+    </div>
+    <div class="guide-step">
+      <b>2. Pay Freelance Drivers to Move Cars</b>
+      Won quotes become Orders. Post Gigs with smart fee schedules, chain round-trips (`≤12h` drive), and send Direct Offers. Always obey car rules: <b>Premium → Experienced driver</b> (€150 fine), <b>EV &lt;30% over 200km → Charging stop</b> (€100 fine), and follow Finnish/Swedish/English notes (`Plates`, `Manual`).
+    </div>
+    <div class="guide-step">
+      <b>3. Maximize Gross Margin AND Stay ≥ 90% On-Time</b>
+      Your score is <b>Gross Margin (€)</b> = Revenue − Driver Fees − Refunds/Fines. <b>Hard Cliff:</b> If fewer than <b>90.0%</b> of your won orders arrive on time, you are <b>Unranked</b>! Any car still undelivered at Wed 22:00 costs a brutal <b>2× order price penalty</b>.
+    </div>
+  </div>
+</section>
+
+<!-- HERO KPI STRIP -->
+<section class="kpi-strip" id="kpiStrip">
+  <div class="kpi">
+    <div class="kpi-label"><span>Gross Margin (Your Score)</span><span id="kpiMarginPct" class="badge mute">—</span></div>
+    <div class="kpi-val" id="kpiMargin">—</div>
+    <div class="kpi-sub" id="kpiRevSub">Select or create a world to begin</div>
+  </div>
+
+  <div class="kpi">
+    <div class="kpi-label"><span>On-Time SLA (≥ 90% to Rank)</span><span id="kpiRankBadge" class="badge mute">—</span></div>
+    <div class="kpi-val" id="kpiOnTime">—</div>
+    <div class="gauge-track">
+      <div class="gauge-fill" id="kpiSlaBar" style="width:0%"></div>
+      <div class="gauge-mark" style="left:90%"></div>
+    </div>
+    <div class="kpi-sub" id="kpiSlaSub">90.0% minimum required</div>
+  </div>
+
+  <div class="kpi">
+    <div class="kpi-label"><span>Live Car Pipeline</span><span id="kpiWonCnt" class="mute-txt">0 won</span></div>
+    <div class="funnel" id="kpiFunnel">
+      <div class="f-pill" onclick="jumpOrders('req')"><b id="fnReq">0</b><span>Requests</span></div>
+      <div class="f-pill" onclick="jumpOrders('waiting')"><b id="fnWait">0</b><span>No Driver</span></div>
+      <div class="f-pill" onclick="jumpOrders('booked')"><b id="fnBook">0</b><span>Booked</span></div>
+      <div class="f-pill" onclick="jumpOrders('moving')"><b id="fnMove">0</b><span>Moving</span></div>
+      <div class="f-pill" onclick="jumpOrders('delivered')"><b id="fnDone">0</b><span>Delivered</span></div>
+    </div>
+  </div>
+
+  <div class="kpi">
+    <div class="kpi-label"><span>Market & Shortage Radar</span><span id="kpiShortageBadge" class="badge mute">—</span></div>
+    <div style="margin:6px 0;font-size:13px;line-height:1.65" id="kpiRadarBody">
+      <span class="mute-txt">Python telemetry appears when world loads</span>
+    </div>
+    <div class="kpi-sub" id="kpiRadarSub">Driver roster & competitor learning</div>
+  </div>
+
+  <div class="kpi">
+    <div class="kpi-label"><span>Simulated Week Clock</span><span id="kpiClockPct" class="mute-txt">0%</span></div>
+    <div class="kpi-val" id="kpiClock" style="font-size:21px">—</div>
+    <div class="gauge-track"><div class="gauge-fill" id="kpiTimeBar" style="width:0%;background:var(--acc)"></div></div>
+    <div class="row" style="margin:4px 0 0;gap:4px">
+      <button class="sm" data-act="adv" data-by="15">+15m</button>
+      <button class="sm" data-act="adv" data-by="60">+1h</button>
+      <button class="sm" data-act="advEvt" data-k="price_request">Next Req</button>
+      <button class="sm" data-act="advEvt" data-k="attn">Next Urgent</button>
+    </div>
+  </div>
+</section>
+
+<main>
+  <!-- LEFT COLUMN: PYTHON BOT + FINLAND MAP + BRAIN FEED -->
+  <section>
+    <div class="card-box bot-box">
+      <h3>
+        <span>🧠 Python SmartDesk Dispatcher</span>
+        <span class="badge" id="botStateBadge">Idle</span>
+      </h3>
+      <div class="mute-txt" style="font-size:12px">
+        Runs the full Python engine (`engine/desk.py`) on the backend: multilingual note parser, town-shortage pricing, 94% SLA shield, multi-order chaining & direct offers.
+      </div>
+      <div class="bot-btns">
+        <button class="pri" id="bBotTurbo" title="Run entire remaining week at maximum speed in Python">⚡ Turbo Run Week</button>
+        <button class="pri" id="bBotPack5" style="background:var(--purple);border-color:var(--purple)" title="Create and run 5 consecutive practice weeks automatically with human-readable names and combined 5-week analytics">🏃 Run 5 Practice Weeks</button>
+        <button class="good-btn" id="bBotWatch" title="Advance step-by-step (~3 steps/sec) so you can watch cars & decisions live">👁️ Watch Live</button>
+        <button id="bBotDay" title="Run Python dispatcher until midnight, then pause">⏭️ Run +1 Day</button>
+        <button id="bBotStep" title="Execute one smart wakeup step in Python and pause">🎯 Single Step</button>
+        <button class="warn-btn" id="bBotFinal" title="Connect Python SmartDesk to the Live Final / Test-Final WebSocket stream">🏆 Join Live Final</button>
+        <button class="bad-btn" id="bBotStop" disabled>⏹ Stop Bot</button>
+      </div>
+      <div id="botPackBox" class="note-box" style="display:none;border-color:var(--purple);background:rgba(168,85,247,0.12);margin-top:8px"></div>
+      <div id="botErrorBox" class="note-box" style="display:none;border-color:var(--bad);background:var(--bad-bg);color:var(--bad)"></div>
+    </div>
+
+    <div class="card-box">
+      <h3>
+        <span>🗺️ Live Finland Operations Map</span>
+        <span style="display:flex;gap:8px;align-items:center;font-weight:400;font-size:12px">
+          <span id="cityFilterChip" style="display:none" class="badge cyan"></span>
+          <label class="ck"><input type="checkbox" id="mpHomes" checked>Driver Supply</label>
+          <label class="ck"><input type="checkbox" id="mpReq" checked>Requests</label>
+          <label class="ck"><input type="checkbox" id="mpLabels" checked>Towns</label>
+        </span>
+      </h3>
+      <div id="mapWrap">
+        <svg id="map" viewBox="0 0 400 510"></svg>
+      </div>
+      <div class="map-legend">
+        <span class="leg-item"><i class="dot" style="background:var(--cyan);opacity:.45"></i>Driver homes (size = supply)</span>
+        <span class="leg-item"><i class="line-swatch" style="background:#ef4444"></i>Waiting driver</span>
+        <span class="leg-item"><i class="line-swatch" style="background:#f59e0b"></i>Booked</span>
+        <span class="leg-item"><i class="line-swatch" style="background:#3b82f6"></i>Moving</span>
+        <span class="leg-item"><i class="dot" style="background:#22c55e"></i>Your active driver</span>
+        <span class="leg-item"><i class="dot" style="border:1.5px dashed var(--cyan)"></i>Snow forecast</span>
+      </div>
+      <div class="mute-txt" style="font-size:11px;margin-top:4px">Tip: Click any town on the map to filter Orders & Requests for that city.</div>
+    </div>
+
+    <div class="card-box">
+      <h3>
+        <span>📡 Live Dispatcher Brain Feed</span>
+        <span class="mute-txt" style="font-size:11.5px;font-weight:400" id="brainSub">Plain-English bot reasoning</span>
+      </h3>
+      <div class="brain-list" id="brainFeed">
+        <div class="mute-txt" style="font-size:12px;padding:6px">Run the Python Dispatcher (Step, Watch, or Turbo) to see real-time pricing, chaining, and recovery decisions here.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT COLUMN: OPERATIONS TABS -->
+  <section>
+    <div class="tabs" id="tabs">
+      <button data-tab="ovw" class="on">🚨 Overview & Risks <span class="tab-cnt" id="tc-ovw">0</span></button>
+      <button data-tab="ord">📦 Orders <span class="tab-cnt" id="tc-ord">0</span></button>
+      <button data-tab="req">📩 Price Requests <span class="tab-cnt" id="tc-req">0</span></button>
+      <button data-tab="gig">🚗 Gigs & Drivers <span class="tab-cnt" id="tc-gig">0</span></button>
+      <button data-tab="rev">🔬 Money & Reveal</button>
+      <button data-tab="board">🏆 Rankings & API</button>
+    </div>
+
+    <div class="card-box">
+      <div class="tab-pane on" id="tab-ovw"></div>
+      <div class="tab-pane" id="tab-ord"></div>
+      <div class="tab-pane" id="tab-req"></div>
+      <div class="tab-pane" id="tab-gig"></div>
+      <div class="tab-pane" id="tab-rev"></div>
+      <div class="tab-pane" id="tab-board"></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const fmtT = m => {
+  if (m == null || isNaN(m)) return '—';
+  const d = Math.floor(m / 1440), r = ((m % 1440) + 1440) % 1440;
+  return DAYS[d % 7] + (d >= 7 ? '+' : '') + ' ' + String(Math.floor(r / 60)).padStart(2, '0') + ':' + String(r % 60).padStart(2, '0');
+};
+const fmtDur = mins => {
+  const s = mins < 0 ? '-' : '';
+  const a = Math.abs(Math.round(mins));
+  return a >= 60 ? `${s}${Math.floor(a / 60)}h ${String(a % 60).padStart(2, '0')}m` : `${s}${a}m`;
+};
+const eur = c => {
+  if (c == null || isNaN(c)) return '—';
+  return (c < 0 ? '-' : '') + '€' + (Math.abs(c) / 100).toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+};
+const eur0 = c => {
+  if (c == null || isNaN(c)) return '—';
+  return (c < 0 ? '-' : '') + '€' + Math.round(Math.abs(c) / 100).toLocaleString('en-GB');
+};
+
+const ATTN = ['price_request','order_won','deadline_close','gig_dropped','gig_expired','no_show','driver_late','visit_failed','order_changed','order_cancelled','forecast'];
+
+const S = {
+  wid: null,
+  worlds: [],
+  snap: null,
+  events: [],
+  seen: new Set(),
+  reqs: {},
+  noteCache: {},
+  map: null,
+  pl: {},
+  road: {},
+  drivers: [],
+  bot: { running: false, mode: 'idle', telemetry: null },
+  reveal: null,
+  cityFilter: null,
+  ordFilter: 'all',
+  gigShowAll: false,
+  composerOrder: null,
+  reqLog: [],
+  pollTimer: null,
+};
+
+function toast(msg, ms = 4200) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toast.h);
+  toast.h = setTimeout(() => t.style.display = 'none', ms);
+}
+
+function toggleGuide(show) {
+  const box = $('#guideBox');
+  const next = show != null ? show : box.style.display === 'none';
+  box.style.display = next ? 'block' : 'none';
+  localStorage.setItem('spread_hide_guide', next ? '0' : '1');
+}
+
+const pn = id => (S.pl[id] && S.pl[id].name) || id;
+const roadInfo = (u, v) => S.road[u + '>' + v] || { km: 0, minutes: 0 };
+const routeText = legs => legs.map(l => `${pn(l.pickup.placeId)} → ${pn(l.delivery.placeId)}`).join('  +  ');
+const ended = () => S.snap && S.snap.now >= S.snap.endsAt;
+
+/* ---------- API & Backend Calls ---------- */
+async function api(method, path, body) {
+  const t0 = performance.now();
+  let r, txt;
+  try {
+    r = await fetch('/api' + path, {
+      method,
+      headers: body ? {'Content-Type': 'application/json'} : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    txt = await r.text();
+  } catch (e) {
+    throw new Error('Cannot reach local server.py');
+  }
+  const rem = r.headers.get('RateLimit-Remaining'), lim = r.headers.get('RateLimit-Limit');
+  if (rem !== null) $('#rateTxt').textContent = `${rem} tokens · ${lim}/s`;
+  let data = null;
+  if (txt) { try { data = JSON.parse(txt); } catch (_) { data = txt; } }
+  S.reqLog.unshift({ t: new Date().toLocaleTimeString(), method, path, status: r.status, ms: Math.round(performance.now() - t0) });
+  if (S.reqLog.length > 50) S.reqLog.length = 50;
+  if (!r.ok) {
+    const err = new Error((data && data.error) ? data.error + (data.field ? ` [${data.field}]` : '') : `${r.status} ${r.statusText}`);
+    err.status = r.status;
+    throw err;
+  }
+  return data;
+}
+const wapi = (m, p, b) => api(m, '/v1/worlds/' + S.wid + p, b);
+
+async function botApi(method, path, body) {
+  let r, txt;
+  try {
+    r = await fetch('/bot' + path, {
+      method,
+      headers: body !== undefined ? {'Content-Type': 'application/json'} : {},
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    txt = await r.text();
+  } catch (e) {
+    throw new Error('Cannot reach local server.py');
+  }
+  let data = null;
+  if (txt) {
+    try { data = JSON.parse(txt); }
+    catch (_) { throw new Error(`Server returned non-JSON (${r.status}): ${txt.slice(0, 80)}`); }
+  }
+  if (!r.ok) {
+    throw new Error((data && data.error) ? data.error : `${r.status} ${r.statusText}`);
+  }
+  return data;
+}
+
+/* ---------- Initialization & World Loading ---------- */
+async function init() {
+  if (localStorage.getItem('spread_theme') === 'light') document.body.classList.add('light');
+  if (localStorage.getItem('spread_hide_guide') !== '1') $('#guideBox').style.display = 'block';
+
+  for (let l = 1; l <= 8; l++) {
+    $('#nwLevel').insertAdjacentHTML('beforeend', `<option value="${l}"${l === 8 ? ' selected' : ''}>Level ${l}</option>`);
+  }
+
+  try {
+    const cfg = await (await fetch('/config')).json();
+    if (!cfg.hasKey) {
+      const b = $('#keyBanner');
+      b.style.display = 'block';
+      b.textContent = `⚠️ SPREAD_KEY is not configured! Add SPREAD_KEY=<your key> to .env (get one at ${cfg.base}/join) and restart server.py.`;
+    }
+  } catch (_) {}
+
+  try {
+    const m = await api('GET', '/v1/map');
+    S.map = m;
+    m.places.forEach(p => S.pl[p.id] = p);
+    m.roads.forEach(r => S.road[r.from + '>' + r.to] = r);
+  } catch (e) {
+    toast('Map load failed: ' + e.message);
+  }
+
+  await loadWorlds();
+  startBotPoller();
+}
+
+function renderWorldSelect(selectedId) {
+  const sel = $('#worldSel');
+  sel.innerHTML = [...S.worlds].reverse().map(w => {
+    const label = w.name || `${w.worldId.slice(0, 8)} · L${w.level}`;
+    const sc = w.score;
+    const scTxt = sc ? ` · ${eur0(sc.marginCents)} (${(sc.onTimeShare * 100).toFixed(1)}% ${sc.ranked ? '✓' : '✕'})` : (w.ended ? ' · Ended' : ' · Live');
+    return `<option value="${esc(w.worldId)}">${esc(label)}${scTxt} [${esc(w.worldId.slice(0, 6))}]</option>`;
+  }).join('') || '<option value="">No worlds yet — click + Create</option>';
+  if (selectedId && S.worlds.some(w => w.worldId === selectedId)) {
+    sel.value = selectedId;
+  }
+}
+
+async function refreshWorldsList() {
+  S.worlds = await api('GET', '/v1/worlds');
+  $('#stBadge').textContent = '● Connected';
+  $('#stBadge').className = 'badge good';
+  renderWorldSelect(S.wid);
+}
+
+async function loadWorlds(preferId) {
+  try {
+    await refreshWorldsList();
+  } catch (e) {
+    $('#stBadge').textContent = e.status === 401 ? '✕ Invalid Key' : '✕ Offline';
+    $('#stBadge').className = 'badge bad';
+    toast(e.message);
+    return;
+  }
+
+  const want = preferId || S.wid || (S.worlds.find(w => !w.ended) || S.worlds[S.worlds.length - 1] || {}).worldId;
+  if (want && S.worlds.some(w => w.worldId === want)) {
+    $('#worldSel').value = want;
+    if (want !== S.wid || !S.snap || preferId) await loadWorld(want);
+  } else {
+    S.wid = null;
+    S.snap = null;
+    renderAll();
+  }
+}
+
+async function fetchBotStatus(wid) {
+  try {
+    const st = await botApi('GET', '/status' + (wid ? `?worldId=${encodeURIComponent(wid)}` : ''));
+    S.bot = st;
+    wasBotRunning = Boolean(st.running);
+  } catch (_) {}
+}
+
+async function loadWorld(id) {
+  S.wid = id;
+  S.events = [];
+  S.seen = new Set();
+  S.reqs = {};
+  S.reveal = null;
+  S.drivers = [];
+  S.snap = null;
+  try {
+    const [, , drivers] = await Promise.all([
+      refreshEvents(true),
+      refreshSnap(),
+      wapi('GET', '/drivers').catch(() => []),
+      fetchBotStatus(id),
+    ]);
+    S.drivers = drivers || [];
+    await enrichNotes(S.snap ? S.snap.openRequests : []);
+  } catch (e) {
+    toast(e.message);
+  }
+  renderAll();
+}
+
+async function refreshSnap() {
+  if (!S.wid) return;
+  S.snap = await wapi('GET', '');
+  S.snap.openRequests.forEach(r => S.reqs[r.id] = r);
+}
+
+async function refreshEvents(all) {
+  if (!S.wid) return;
+  const last = (all || !S.events.length) ? -1 : S.events[S.events.length - 1].seq;
+  const evs = await wapi('GET', '/events?after=' + last);
+  ingestEvents(evs);
+}
+
+function ingestEvents(evs) {
+  for (const e of (evs || [])) {
+    if (S.seen.has(e.seq)) continue;
+    S.seen.add(e.seq);
+    S.events.push(e);
+    if (e.kind === 'price_request') S.reqs[e.request.id] = e.request;
+  }
+  S.events.sort((a, b) => a.seq - b.seq);
+}
+
+async function enrichNotes(reqs) {
+  const todo = (reqs || []).filter(r => r.note && !S.noteCache[r.id]);
+  if (!todo.length) return;
+  try {
+    const payload = todo.map(r => ({
+      id: r.id,
+      note: r.note,
+      arrivedAt: r.arrivedAt,
+      pickupFrom: r.legs[0].pickup.window.from,
+      deadline: Math.max(...r.options.map(o => o.deadline)),
+    }));
+    const res = await botApi('POST', '/parse-notes', payload);
+    Object.assign(S.noteCache, res);
+  } catch (_) {}
+}
+
+let syncBusy = false;
+async function syncWorld() {
+  if (!S.wid || syncBusy) return;
+  syncBusy = true;
+  try {
+    const prevEnded = ended();
+    await Promise.all([refreshEvents(false), refreshSnap()]);
+    await enrichNotes(S.snap ? S.snap.openRequests : []);
+    if (!prevEnded && ended()) {
+      refreshWorldsList().catch(() => {});
+    }
+    renderAll();
+  } finally {
+    syncBusy = false;
+  }
+}
+
+/* ---------- Backend Python Bot Poller ---------- */
+let wasBotRunning = false;
+let pollBusy = false;
+function startBotPoller() {
+  if (S.pollTimer) clearInterval(S.pollTimer);
+  S.pollTimer = setInterval(pollBotOnce, 650);
+}
+
+async function pollBotOnce() {
+  if (pollBusy) return;
+  pollBusy = true;
+  try {
+    const st = await botApi('GET', '/status' + (S.wid ? `?worldId=${encodeURIComponent(S.wid)}` : ''));
+    S.bot = st;
+    const isRunning = Boolean(st.running);
+    const justFinished = wasBotRunning && !isRunning;
+    wasBotRunning = isRunning;
+
+    if (st.worldId && st.worldId !== S.wid && isRunning) {
+      await loadWorlds(st.worldId);
+      return;
+    }
+    if (isRunning && S.wid) {
+      renderBotControls();
+      await syncWorld();
+    } else if (justFinished && S.wid) {
+      await syncWorld();
+      await refreshWorldsList().catch(() => {});
+      renderBotControls();
+    } else {
+      renderBotControls();
+    }
+  } catch (_) {
+  } finally {
+    pollBusy = false;
+  }
+}
+
+async function startBot(mode) {
+  if (mode !== 'final' && !S.wid) return toast('Create or select a world first');
+  try {
+    const st = await botApi('POST', '/start', { worldId: S.wid, mode });
+    S.bot = st;
+    wasBotRunning = Boolean(st.running);
+    renderBotControls();
+    if (mode === 'step') {
+      setTimeout(syncWorld, 220);
+    }
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+async function stopBot() {
+  try {
+    const st = await botApi('POST', '/stop');
+    S.bot = st;
+    wasBotRunning = false;
+    if (S.wid) await syncWorld();
+    renderBotControls();
+  } catch (_) {}
+}
+
+/* ---------- Manual Actions & Clock ---------- */
+async function manualStep(body) {
+  if (!S.wid || ended()) return;
+  try {
+    const r = await wapi('POST', '/advance', body);
+    ingestEvents(r.events);
+    await refreshSnap();
+    await enrichNotes(S.snap.openRequests);
+    renderAll();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+async function sendActions(acts) {
+  if (!S.wid) return;
+  try {
+    const out = [];
+    for (let i = 0; i < acts.length; i += 50) {
+      const batch = acts.slice(i, i + 50);
+      const res = await wapi('POST', '/actions', batch);
+      out.push(...res);
+      res.forEach((x, idx) => {
+        if (!x.ok) toast(`Action ${batch[idx].type} refused: ${x.reason}`, 6500);
+      });
+    }
+    await syncWorld();
+    return out;
+  } catch (e) {
+    toast(e.message, 6500);
+  }
+}
+
+/* ---------- Helper Calculations ---------- */
+function orderLedgerMap() {
+  const m = {};
+  for (const e of S.events) {
+    if (e.kind === 'ledger' && e.line.orderId) {
+      m[e.line.orderId] = (m[e.line.orderId] || 0) + e.line.cents;
+    }
+  }
+  return m;
+}
+
+function gigViewsCount() {
+  const v = {};
+  for (const e of S.events) {
+    if (e.kind === 'gig_viewed') v[e.gigId] = (v[e.gigId] || 0) + 1;
+  }
+  return v;
+}
+
+function localDriversNear(placeId) {
+  if (!S.drivers.length || !S.pl[placeId]) return 0;
+  const A = S.pl[placeId];
+  let cnt = 0;
+  for (const d of S.drivers) {
+    const B = S.pl[d.homePlaceId];
+    if (!B) continue;
+    const dLat = (B.lat - A.lat) * 111.32;
+    const dLon = (B.lon - A.lon) * 111.32 * Math.cos(A.lat * Math.PI / 180);
+    if (Math.hypot(dLat, dLon) <= 30.0) cnt++;
+  }
+  return cnt;
+}
+
+function matchesCity(legs) {
+  if (!S.cityFilter) return true;
+  return legs.some(l => l.pickup.placeId === S.cityFilter || l.delivery.placeId === S.cityFilter);
+}
+
+/* ---------- Rendering ---------- */
+function renderAll() {
+  renderBotControls();
+  renderHead();
+  renderMap();
+  renderBrainFeed();
+  renderOverview();
+  renderOrders();
+  renderRequests();
+  renderGigsAndDrivers();
+  renderMoneyAndReveal();
+  renderBoardAndConsole();
+}
+
+function renderBotControls() {
+  const b = S.bot || {};
+  const badge = $('#botStateBadge');
+  if (b.running) {
+    if (b.mode === 'pack' && b.pack) {
+      badge.textContent = `● Pack W${b.pack.currentWeek}/${b.pack.totalWeeks} · ${b.steps} steps`;
+    } else {
+      badge.textContent = `● Running (${b.mode.toUpperCase()}) · ${b.steps} steps`;
+    }
+    badge.className = 'badge good';
+  } else {
+    badge.textContent = ended() ? 'World Ended' : 'Idle · Ready';
+    badge.className = 'badge mute';
+  }
+  $('#bBotStop').disabled = !b.running;
+  $('#bBotPack5').disabled = b.running;
+  $('#bBotTurbo').disabled = b.running || ended() || !S.wid;
+  $('#bBotWatch').disabled = b.running || ended() || !S.wid;
+  $('#bBotDay').disabled = b.running || ended() || !S.wid;
+  $('#bBotStep').disabled = b.running || ended() || !S.wid;
+
+  const pBox = $('#botPackBox');
+  if (b.pack && (b.mode === 'pack' || (b.pack.completedWeeks && b.pack.completedWeeks.length))) {
+    const pk = b.pack;
+    const done = pk.completedWeeks || [];
+    const sumCents = done.reduce((acc, w) => acc + Math.round(w.marginEuros * 100), 0);
+    const pills = done.map(w =>
+      `<span class="badge ${w.ranked ? 'good' : 'bad'}" style="cursor:pointer" onclick="loadWorld('${esc(w.worldId)}')">W${w.index}: ${eur0(Math.round(w.marginEuros * 100))} (${w.onTimePct}% ${w.ranked ? '✓' : '✕'})</span>`
+    ).join(' ');
+    pBox.style.display = 'block';
+    pBox.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <div>
+          <b>📦 ${esc(pk.batchName)}</b>
+          <span class="mute-txt" style="margin-left:6px">
+            ${b.running ? `Running Week ${pk.currentWeek}/${pk.totalWeeks} (${esc(pk.currentWorldName || '')})…` : `Finished ${done.length}/${pk.totalWeeks} weeks · Total ${eur(sumCents)}`}
+          </span>
+        </div>
+        <button class="sm pri" onclick="window.open('/analytics?batchId=${encodeURIComponent(pk.batchId)}', '_blank')">📊 Analyze 5-Week Pack</button>
+      </div>
+      ${pills ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${pills}</div>` : ''}`;
+  } else if (pBox) {
+    pBox.style.display = 'none';
+  }
+
+  const errBox = $('#botErrorBox');
+  if (b.error) {
+    errBox.style.display = 'block';
+    errBox.textContent = b.error;
+  } else {
+    errBox.style.display = 'none';
+  }
+}
+
+function renderHead() {
+  const s = S.snap;
+  if (!s) {
+    $('#kpiMargin').textContent = '—';
+    $('#kpiOnTime').textContent = '—';
+    $('#kpiClock').textContent = '—';
+    $('#kpiRevSub').textContent = 'Create or select a world above to start';
+    return;
+  }
+
+  const sc = s.score;
+  const costsCents = sc.revenueCents - sc.marginCents;
+  $('#kpiMargin').textContent = eur(sc.marginCents);
+  $('#kpiMargin').className = 'kpi-val ' + (sc.marginCents >= 0 ? 'good-txt' : 'bad-txt');
+  $('#kpiMarginPct').textContent = sc.revenueCents > 0 ? `${(sc.marginShare * 100).toFixed(1)}% margin` : '0% margin';
+  $('#kpiMarginPct').className = 'badge ' + (sc.marginCents >= 0 ? 'good' : 'bad');
+  const perOrd = sc.wonOrders > 0 ? ` · ${eur0(sc.marginCents / sc.wonOrders)}/order` : '';
+  $('#kpiRevSub').textContent = `Rev ${eur0(sc.revenueCents)} − Costs ${eur0(costsCents)}${perOrd}`;
+
+  // On-Time SLA Gauge
+  const otPct = (sc.onTimeShare * 100);
+  $('#kpiOnTime').textContent = sc.wonOrders ? `${otPct.toFixed(1)}%` : '—';
+  $('#kpiOnTime').className = 'kpi-val ' + (!sc.wonOrders ? '' : (otPct >= 92 ? 'good-txt' : otPct >= 90 ? 'warn-txt' : 'bad-txt'));
+  $('#kpiSlaBar').style.width = `${Math.min(100, Math.max(0, otPct))}%`;
+  $('#kpiSlaBar').style.background = otPct >= 92 ? 'var(--good)' : (otPct >= 90 ? 'var(--warn)' : 'var(--bad)');
+
+  const rb = $('#kpiRankBadge');
+  if (!sc.wonOrders) {
+    rb.textContent = 'No Orders Yet';
+    rb.className = 'badge mute';
+    $('#kpiSlaSub').textContent = 'Win at least 1 order & keep ≥ 90% on time';
+  } else if (sc.ranked) {
+    const cushion = Math.floor((sc.onTimeShare - 0.90) * sc.wonOrders);
+    rb.textContent = '✓ RANKED';
+    rb.className = 'badge good';
+    $('#kpiSlaSub').textContent = `Safe: +${cushion} order cushion above 90% cliff · ${(sc.undeliveredShare * 100).toFixed(1)}% undelivered`;
+  } else {
+    const needed = Math.max(1, Math.ceil((0.90 - sc.onTimeShare) * sc.wonOrders / 0.10));
+    rb.textContent = '✕ UNRANKED (<90%)';
+    rb.className = 'badge bad';
+    $('#kpiSlaSub').textContent = `Below 90% cutoff! Need ~${needed} consecutive on-time orders to recover`;
+  }
+
+  // Pipeline counts
+  const counts = { waiting: 0, booked: 0, moving: 0, delivered: 0 };
+  s.orders.forEach(o => { if (counts[o.status] != null) counts[o.status]++; });
+  $('#kpiWonCnt').textContent = `${sc.wonOrders} total won`;
+  $('#fnReq').textContent = s.openRequests.length;
+  $('#fnWait').textContent = counts.waiting;
+  $('#fnWait').className = counts.waiting > 0 ? 'bad-txt' : '';
+  $('#fnBook').textContent = counts.booked;
+  $('#fnMove').textContent = counts.moving;
+  $('#fnDone').textContent = counts.delivered;
+
+  // Market & Shortage Radar
+  const tel = S.bot && S.bot.telemetry;
+  const drvCnt = S.drivers.length || (tel && tel.totalDrivers) || 0;
+  const isShort = drvCnt > 0 && drvCnt < 260;
+  $('#kpiShortageBadge').textContent = drvCnt ? (isShort ? ` Shortage (${drvCnt} drv)` : `Normal (${drvCnt} drv)`) : 'Loading…';
+  $('#kpiShortageBadge').className = 'badge ' + (isShort ? 'warn' : 'good');
+  if (tel) {
+    $('#kpiRadarBody').innerHTML =
+      `<div>Competitor Est: <b>${tel.worldPriceMult.toFixed(2)}× list</b></div>` +
+      `<div>Driver Clearing: <b>${tel.clearingFeeMult.toFixed(2)}× typical</b> · Active today: <b>${tel.activeDriversToday}</b></div>`;
+    $('#kpiRadarSub').textContent = `SLA Shield headroom: ${tel.slaHeadroomOrders >= 0 ? '+' : ''}${tel.slaHeadroomOrders} orders`;
+  } else {
+    $('#kpiRadarBody').innerHTML =
+      `<div>Registered Drivers: <b>${drvCnt || '—'}</b> across Finland</div>` +
+      `<div>Active Drivers on Your Gigs: <b>${s.driverPositions.length}</b></div>`;
+    $('#kpiRadarSub').textContent = 'Start Python Bot for live competitor & fee estimates';
+  }
+
+  // Clock
+  const pct = Math.min(100, (100 * s.now / s.endsAt));
+  $('#kpiClock').textContent = fmtT(s.now);
+  $('#kpiClockPct').textContent = ended() ? 'ENDED' : `${pct.toFixed(0)}% of week`;
+  $('#kpiTimeBar').style.width = pct + '%';
+
+  // Update tab badge counts
+  const urgentCnt = s.orders.filter(o => o.status === 'waiting' && (o.lastPickupAt - s.now) <= 240).length;
+  $('#tc-ovw').textContent = urgentCnt || counts.waiting;
+  $('#tc-ord').textContent = s.orders.length;
+  $('#tc-req').textContent = s.openRequests.length;
+  $('#tc-gig').textContent = s.gigs.filter(g => g.status === 'open' || g.status === 'booked' || g.status === 'working').length;
+}
+
+function renderMap() {
+  const svg = $('#map');
+  if (!S.map) { svg.innerHTML = ''; return; }
+  const P = S.map.places;
+  const la0 = P.reduce((a, p) => a + p.lat, 0) / P.length;
+  const k = Math.cos(la0 * Math.PI / 180);
+  const xs = P.map(p => p.lon * k), ys = P.map(p => -p.lat);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const sc = Math.min(366 / (x1 - x0 || 1), 476 / (y1 - y0 || 1));
+  const X = p => 17 + (p.lon * k - x0) * sc;
+  const Y = p => 17 + (-p.lat - y0) * sc;
+
+  const chip = $('#cityFilterChip');
+  if (S.cityFilter) {
+    chip.style.display = 'inline-flex';
+    chip.innerHTML = `📍 ${esc(pn(S.cityFilter))} <span style="cursor:pointer;margin-left:4px" onclick="setCityFilter(null)">✕</span>`;
+  } else {
+    chip.style.display = 'none';
+  }
+
+  let h = `<defs>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 1 L 10 5 L 0 9 z" fill="#ef4444"/></marker>
+    <marker id="arr-amb" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b"/></marker>
+    <marker id="arr-blu" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 1 L 10 5 L 0 9 z" fill="#3b82f6"/></marker>
+  </defs>`;
+
+  // Driver supply halos
+  const homeCounts = {};
+  S.drivers.forEach(d => homeCounts[d.homePlaceId] = (homeCounts[d.homePlaceId] || 0) + 1);
+  if ($('#mpHomes').checked && S.drivers.length) {
+    for (const id in homeCounts) {
+      const p = S.pl[id];
+      if (!p) continue;
+      const r = 3.5 + Math.sqrt(homeCounts[id]) * 1.9;
+      h += `<circle cx="${X(p).toFixed(1)}" cy="${Y(p).toFixed(1)}" r="${r.toFixed(1)}" fill="var(--cyan)" opacity="0.16"/>`;
+    }
+  }
+
+  // Snow forecast rings
+  const now = S.snap ? S.snap.now : 0;
+  const snowPlaces = new Set();
+  for (const e of S.events) {
+    if (e.kind === 'forecast' && e.to >= now && e.from <= now + 1440) {
+      e.placeIds.forEach(pid => snowPlaces.add(pid));
+    }
+  }
+  for (const pid of snowPlaces) {
+    const p = S.pl[pid];
+    if (p) h += `<circle cx="${X(p).toFixed(1)}" cy="${Y(p).toFixed(1)}" r="11" fill="none" stroke="var(--cyan)" stroke-width="1.3" stroke-dasharray="2.5 2"/>`;
+  }
+
+  const drawRoute = (a, b, col, dash, width, marker) => {
+    const A = S.pl[a], B = S.pl[b];
+    if (!A || !B || a === b) return;
+    if (S.cityFilter && a !== S.cityFilter && b !== S.cityFilter) return;
+    h += `<line x1="${X(A).toFixed(1)}" y1="${Y(A).toFixed(1)}" x2="${X(B).toFixed(1)}" y2="${Y(B).toFixed(1)}" stroke="${col}" stroke-width="${width}" ${dash ? 'stroke-dasharray="3 2.5"' : ''} ${marker ? `marker-end="url(#${marker})"` : ''} opacity="0.82"/>`;
+  };
+
+  if (S.snap) {
+    if ($('#mpReq').checked) {
+      S.snap.openRequests.forEach(r => r.legs.forEach(l => drawRoute(l.pickup.placeId, l.delivery.placeId, '#94a3b8', true, 1.0, '')));
+    }
+    const stMap = {
+      waiting: ['#ef4444', 'arr-red', 1.8],
+      booked: ['#f59e0b', 'arr-amb', 1.6],
+      moving: ['#3b82f6', 'arr-blu', 2.0],
+    };
+    S.snap.orders.forEach(o => {
+      const cfg = stMap[o.status];
+      if (!cfg) return;
+      o.legs.forEach((l, i) => {
+        if (o.deliveredAt[i] == null) drawRoute(l.pickup.placeId, l.delivery.placeId, cfg[0], false, cfg[2], cfg[1]);
+      });
+    });
+  }
+
+  // Cities
+  P.forEach(p => {
+    const selected = S.cityFilter === p.id;
+    const dc = homeCounts[p.id] || 0;
+    h += `<circle class="city-hit" onclick="setCityFilter('${esc(p.id)}')" cx="${X(p).toFixed(1)}" cy="${Y(p).toFixed(1)}" r="${selected ? 4.8 : 2.6}" fill="${selected ? 'var(--acc)' : 'currentColor'}" opacity="${selected ? 1 : 0.75}">
+      <title>${esc(p.name)} — ${dc} resident drivers (click to filter)</title>
+    </circle>`;
+    if ($('#mpLabels').checked || selected) {
+      h += `<text x="${(X(p) + 4).toFixed(1)}" y="${(Y(p) - 2).toFixed(1)}">${esc(p.name)}</text>`;
+    }
+  });
+
+  // Live active drivers
+  if (S.snap) {
+    S.snap.driverPositions.forEach((d, idx) => {
+      const p = S.pl[d.placeId];
+      if (!p) return;
+      const ox = (idx % 3 - 1) * 2.5;
+      h += `<circle cx="${(X(p) + ox).toFixed(1)}" cy="${(Y(p) + 3.5).toFixed(1)}" r="3.4" fill="#22c55e" stroke="#052e16" stroke-width="0.8">
+        <title>Driver ${esc(d.driverId)} working gig ${esc(d.gigId)} @ ${esc(p.name)}</title>
+      </circle>`;
+    });
+  }
+
+  svg.innerHTML = h;
+}
+
+window.setCityFilter = function(pid) {
+  S.cityFilter = (S.cityFilter === pid) ? null : pid;
+  renderMap();
+  renderOrders();
+  renderRequests();
+};
+
+window.jumpOrders = function(kind) {
+  if (kind === 'req') {
+    switchTab('req');
+    return;
+  }
+  S.ordFilter = kind;
+  switchTab('ord');
+  renderOrders();
+};
+
+function renderBrainFeed() {
+  const tel = S.bot && S.bot.telemetry;
+  const box = $('#brainFeed');
+  if (!tel || !tel.decisions || !tel.decisions.length) {
+    return;
+  }
+  $('#brainSub').textContent = `${tel.decisions.length} recent decisions`;
+  box.innerHTML = tel.decisions.map(d => `
+    <div class="brain-item ${esc(d.tone || 'info')}">
+      <div class="brain-top">
+        <span>${esc(d.title)}</span>
+        <span class="mute-txt" style="font-weight:400">${esc(d.time)}</span>
+      </div>
+      <div class="mute-txt">${esc(d.detail)}</div>
+    </div>
+  `).join('');
+}
+
+/* ---------- Tab 1: Overview & Risks ---------- */
+function renderOverview() {
+  const el = $('#tab-ovw');
+  const s = S.snap;
+  if (!s) {
+    el.innerHTML = '<p class="mute-txt">Create or select a world in the top bar to inspect live dispatch status.</p>';
+    return;
+  }
+
+  // 1. Waiting / Urgent Orders sorted by time remaining to lastPickupAt
+  const waiting = s.orders
+    .filter(o => o.status === 'waiting')
+    .sort((a, b) => a.lastPickupAt - b.lastPickupAt);
+
+  let h = `<h3><span>⏳ Orders Waiting for a Driver (${waiting.length})</span><span class="mute-txt" style="font-weight:400;font-size:12px">Sorted by earliest Last On-Time Pickup</span></h3>`;
+  if (!waiting.length) {
+    h += `<div class="req-card" style="border-color:rgba(34,197,94,.35)"><span class="good-txt">✓ All active orders currently have a driver booked, moving, or delivered!</span></div>`;
+  } else {
+    h += `<div class="scroll-area" style="max-height:260px;margin-bottom:14px"><table>
+      <tr><th>Order</th><th>Route</th><th>Time to Last Pickup</th><th>Deadline</th><th>Price</th><th>Open Gig Fee</th><th>Action</th></tr>`;
+    for (const o of waiting.slice(0, 25)) {
+      const rem = o.lastPickupAt - s.now;
+      const cls = rem <= 180 ? 'bad-txt' : (rem <= 360 ? 'warn-txt' : '');
+      const gs = s.gigs.filter(g => g.status === 'open' && g.stops.some(st => st.orderId === o.id));
+      const feeStr = gs.length ? gs.map(g => `${eur0(g.feeCents)} (${g.id})`).join(', ') : '<span class="bad-txt">No open gig!</span>';
+      h += `<tr>
+        <td><b>${esc(o.id)}</b><br><span class="mute-txt">${esc(o.dealerId)}</span></td>
+        <td>${esc(routeText(o.legs))}</td>
+        <td class="${cls}"><b>${fmtDur(rem)}</b><br><span class="mute-txt">${fmtT(o.lastPickupAt)}</span></td>
+        <td>${fmtT(o.deadline)}</td>
+        <td>${eur0(o.priceCents)}</td>
+        <td>${feeStr}</td>
+        <td>${gs.length
+          ? `<button class="sm warn-btn" data-act="quickBoost" data-gid="${esc(gs[0].id)}" data-fee="${gs[0].feeCents}">⚡ +25% Fee</button>`
+          : `<button class="sm pri" data-act="composeFor" data-oid="${esc(o.id)}">Post Gig</button>`}</td>
+      </tr>`;
+    }
+    h += `</table></div>`;
+  }
+
+  // 2. Profit & Loss Waterfall Summary
+  const ledger = S.events.filter(e => e.kind === 'ledger').map(e => e.line);
+  const cats = {
+    revenue: { label: 'Delivered Order Revenue', n: 0, c: 0 },
+    driver_fee: { label: 'Freelance Driver Fees', n: 0, c: 0 },
+    late_refund: { label: 'Late Delivery Refunds (10–100%)', n: 0, c: 0 },
+    undelivered_penalty: { label: 'Undelivered Penalties (2× Price)', n: 0, c: 0 },
+    failed_visit: { label: 'Failed Pickup Visits', n: 0, c: 0 },
+    release_fee: { label: 'Driver Release Fees', n: 0, c: 0 },
+    waiting: { label: 'Site Waiting Charges (€15/h)', n: 0, c: 0 },
+    fine: { label: 'Rule Fines (Premium / EV)', n: 0, c: 0 },
+  };
+  ledger.forEach(l => {
+    const entry = cats[l.kind] || (cats[l.kind] = { label: l.kind, n: 0, c: 0 });
+    entry.n++;
+    entry.c += l.cents;
+  });
+  const maxAbs = Math.max(100, ...Object.values(cats).map(x => Math.abs(x.c)));
+
+  h += `<h3 style="margin-top:14px"><span>💶 Live Profit & Loss Waterfall</span><span class="mute-txt" style="font-weight:400;font-size:12px">Every euro in & out of your account</span></h3>`;
+  if (!ledger.length) {
+    h += `<p class="mute-txt">No ledger entries yet — revenue & driver fees post as cars are delivered.</p>`;
+  } else {
+    h += `<div>`;
+    for (const [k, v] of Object.entries(cats)) {
+      if (v.n === 0 && k !== 'revenue' && k !== 'driver_fee') continue;
+      const w = Math.min(100, Math.round((Math.abs(v.c) / maxAbs) * 100));
+      const col = v.c >= 0 ? 'var(--good)' : (k === 'driver_fee' ? 'var(--acc)' : 'var(--bad)');
+      h += `<div class="waterfall-row">
+        <span><b>${esc(v.label)}</b></span>
+        <span class="mute-txt">${v.n}×</span>
+        <div class="wf-bar-bg"><div class="wf-bar" style="width:${w}%;background:${col}"></div></div>
+        <span style="text-align:right;font-weight:600" class="${v.c >= 0 ? 'good-txt' : 'bad-txt'}">${eur(v.c)}</span>
+      </div>`;
+    }
+    h += `</div>`;
+  }
+
+  // 3. Level 8 Dealer Trust & Snow Forecasts
+  const tel = S.bot && S.bot.telemetry;
+  const forecasts = S.events.filter(e => e.kind === 'forecast').slice(-4).reverse();
+  h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:14px">`;
+  h += `<div class="req-card"><b style="display:block;margin-bottom:6px">❄️ Weather & Snow Alerts</b>`;
+  if (!forecasts.length) {
+    h += `<span class="mute-txt">No snow forecasts announced yet.</span>`;
+  } else {
+    h += forecasts.map(f => `<div style="margin-bottom:6px;font-size:12px"><span class="badge cyan">${fmtT(f.from)} – ${fmtT(f.to)}</span><br>${esc(f.text)} (${f.placeIds.slice(0, 5).map(pn).join(', ')})</div>`).join('');
+  }
+  h += `</div>`;
+
+  h += `<div class="req-card"><b style="display:block;margin-bottom:6px">🤝 Level 8 Dealer Trust Bonus (+1%/order up to +25%)</b>`;
+  if (tel && tel.topTrustedDealers && tel.topTrustedDealers.length) {
+    h += `<div style="display:flex;flex-wrap:wrap;gap:6px">` +
+      tel.topTrustedDealers.map(d => `<span class="badge good">${esc(d.dealerId)}: +${d.trust}% trust</span>`).join('') +
+      `</div>`;
+  } else {
+    h += `<span class="mute-txt">Deliver orders on time to build dealer price tolerance (+1% per clean delivery; halved on late).</span>`;
+  }
+  h += `</div></div>`;
+
+  el.innerHTML = h;
+}
+
+/* ---------- Tab 2: Orders ---------- */
+function renderOrders() {
+  const el = $('#tab-ord');
+  const os = S.snap ? S.snap.orders : [];
+  const lMap = orderLedgerMap();
+  const filters = [
+    ['all', 'All Orders'],
+    ['waiting', '⏳ Waiting Driver'],
+    ['booked', '🤝 Booked'],
+    ['moving', '🚚 Moving'],
+    ['urgent', '🚨 Urgent (<4h)'],
+    ['delivered', '✅ Delivered'],
+    ['cancelled', 'Cancelled'],
+  ];
+
+  let list = os.filter(o => matchesCity(o.legs));
+  if (S.ordFilter === 'urgent') {
+    list = list.filter(o => o.status === 'waiting' && (o.lastPickupAt - S.snap.now) <= 240);
+  } else if (S.ordFilter !== 'all') {
+    list = list.filter(o => o.status === S.ordFilter);
+  }
+
+  let h = `<div class="filter-bar">
+    ${filters.map(([k, lbl]) => `<span class="chip ${S.ordFilter === k ? 'on' : ''}" data-act="setOrdFilter" data-f="${k}">${lbl}</span>`).join('')}
+    <span class="sp"></span>
+    <span class="mute-txt" style="font-size:12px">${list.length} shown</span>
+  </div>`;
+
+  if (!list.length) {
+    h += `<p class="mute-txt">No orders match the current filter.</p>`;
+    el.innerHTML = h;
+    return;
+  }
+
+  const stBadge = {
+    waiting: '<span class="badge bad">⏳ Needs Driver</span>',
+    booked: '<span class="badge warn">🤝 Booked</span>',
+    moving: '<span class="badge">🚚 On Road</span>',
+    delivered: '<span class="badge good">✅ Delivered</span>',
+    cancelled: '<span class="badge mute">Cancelled</span>',
+  };
+
+  h += `<div class="scroll-area"><table>
+    <tr><th>Order</th><th>Route & Car Details</th><th>Option & Price</th><th>Last Pickup</th><th>Deadline</th><th>Status & Gigs</th><th>Order P&L</th><th></th></tr>`;
+
+  for (const o of list.slice().reverse().slice(0, 250)) {
+    const gs = S.snap.gigs.filter(g => g.stops.some(st => st.orderId === o.id));
+    const req = S.reqs[o.id];
+    const tags = [];
+    o.legs.forEach(l => {
+      if (l.car.premium) tags.push('<span class="badge warn">💎 Premium</span>');
+      if (l.car.electric) tags.push(`<span class="badge cyan">⚡ EV ${l.car.chargePercent != null ? l.car.chargePercent + '%' : ''}</span>`);
+      if (l.pickup.privateAddress || l.delivery.privateAddress) tags.push('<span class="badge mute">🏠 Private</span>');
+    });
+    if (req && req.note) tags.push(`<span class="badge warn" title="${esc(req.note.text)}">📝 Note [${esc(req.note.language)}]</span>`);
+
+    // Estimate or actual P&L
+    let netCents = lMap[o.id];
+    let pnlHtml = '<span class="mute-txt">pending</span>';
+    if (netCents != null) {
+      // Note: multi-order gig driver_fee might not carry orderId; if delivered and netCents == priceCents, subtract active/done gig share
+      const doneGig = gs.find(g => g.status === 'done');
+      let approx = netCents;
+      if (doneGig && approx === o.priceCents) {
+        const share = doneGig.feeCents / Math.max(1, new Set(doneGig.stops.map(s => s.orderId)).size);
+        approx -= Math.round(share);
+      }
+      pnlHtml = `<b class="${approx >= 0 ? 'good-txt' : 'bad-txt'}">${eur0(approx)}</b>`;
+    } else if (gs.length) {
+      const liveGig = gs[gs.length - 1];
+      const estNet = o.priceCents - liveGig.feeCents;
+      pnlHtml = `<span class="${estNet >= 0 ? 'good-txt' : 'bad-txt'}">~${eur0(estNet)}</span>`;
+    }
+
+    const rem = o.lastPickupAt - S.snap.now;
+    h += `<tr>
+      <td><b>${esc(o.id)}</b><br><span class="mute-txt">${esc(o.dealerId)}</span></td>
+      <td><b>${esc(routeText(o.legs))}</b><div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:4px">${tags.join('')}</div></td>
+      <td><b>${eur(o.priceCents)}</b><br><span class="mute-txt">${esc(o.option)}</span></td>
+      <td class="${o.status === 'waiting' && rem < 180 ? 'bad-txt' : ''}">${fmtT(o.lastPickupAt)}${o.status === 'waiting' ? `<br><span class="mute-txt">(${fmtDur(rem)})</span>` : ''}</td>
+      <td>${fmtT(o.deadline)}</td>
+      <td>${stBadge[o.status] || o.status}<div style="font-size:11.5px;margin-top:3px" class="mute-txt">${gs.map(g => `${esc(g.id)}: ${g.status} (${eur0(g.feeCents)})`).join('<br>')}</div></td>
+      <td>${pnlHtml}</td>
+      <td>${o.status !== 'delivered' && o.status !== 'cancelled' ? `<button class="sm" data-act="composeFor" data-oid="${esc(o.id)}">Gig…</button>` : ''}</td>
+    </tr>`;
+  }
+  h += `</table></div>`;
+  el.innerHTML = h;
+}
+
+/* ---------- Tab 3: Price Requests ---------- */
+function renderRequests() {
+  const el = $('#tab-req');
+  const rs = (S.snap ? S.snap.openRequests : []).filter(r => matchesCity(r.legs));
+  let h = `<div class="row mute-txt" style="margin-bottom:8px">
+    Incoming dealer price requests (15 min response window). Quote high (4.5× list) rather than ignoring a request so dealer goodwill stays intact!
+  </div>`;
+
+  if (!rs.length) {
+    h += `<div class="req-card"><span class="mute-txt">No open price requests at this exact minute. Click <b>Next Req</b> in the clock card or run the <b>Python Dispatcher</b>!</span></div>`;
+    el.innerHTML = h;
+    return;
+  }
+
+  for (const r of rs) {
+    const minsLeft = r.respondBy - S.snap.now;
+    const p0 = r.legs[0].pickup.placeId;
+    const localCnt = localDriversNear(p0);
+    const parsed = S.noteCache[r.id];
+
+    const legsHtml = r.legs.map(l => {
+      const rd = roadInfo(l.pickup.placeId, l.delivery.placeId);
+      const flags = [];
+      if (l.car.premium) flags.push('<span class="badge warn">💎 Premium (Needs Exp. Driver)</span>');
+      if (l.car.electric) flags.push(`<span class="badge cyan">⚡ EV ${l.car.chargePercent != null ? l.car.chargePercent + '%' : ''}</span>`);
+      if (l.pickup.privateAddress) flags.push('<span class="badge mute">🏠 Private Pickup Slot</span>');
+      if (l.delivery.privateAddress) flags.push('<span class="badge mute">🏠 Private Delivery Slot</span>');
+      return `<div style="margin:5px 0">
+        🚗 <b>${esc(pn(l.pickup.placeId))} → ${esc(pn(l.delivery.placeId))}</b>
+        <span class="mute-txt">(${Math.round(rd.km)} km · ${fmtDur(rd.minutes)} drive · ready ${fmtT(l.pickup.window.from)})</span>
+        ${flags.join(' ')}
+      </div>`;
+    }).join('');
+
+    let noteHtml = '';
+    if (r.note) {
+      const parsedBadges = (parsed && parsed.summary && parsed.summary.length)
+        ? `<div style="margin-top:4px;display:flex;gap:5px;flex-wrap:wrap">${parsed.summary.map(t => `<span class="badge good">✓ Parsed: ${esc(t)}</span>`).join('')}</div>`
+        : '';
+      noteHtml = `<div class="note-box">📝 <b>Dealer Note [${esc(r.note.language.toUpperCase())}]:</b> "${esc(r.note.text)}"${parsedBadges}</div>`;
+    }
+
+    h += `<div class="req-card" data-rid="${esc(r.id)}">
+      <div class="row" style="margin-top:0">
+        <b style="font-size:14px">${esc(r.id)}</b>
+        <span class="badge mute">Dealer ${esc(r.dealerId)}</span>
+        <span class="badge ${minsLeft <= 5 ? 'bad' : 'cyan'}">⏱ ${minsLeft} min left (due ${fmtT(r.respondBy)})</span>
+        <span class="badge ${localCnt >= 4 ? 'good' : (localCnt > 0 ? 'warn' : 'bad')}">🔔 ${localCnt} local drivers (≤30km)</span>
+        <span class="sp"></span>
+        <span>Typical driver fee: <b>${eur(r.referenceFeeCents)}</b></span>
+      </div>
+      ${legsHtml}
+      ${noteHtml}
+      <table style="margin-top:6px">
+        <tr><th>Delivery Option</th><th>Order Deadline</th><th>Public List Price</th><th>Your Quote (€)</th></tr>
+        ${r.options.map(o => `<tr>
+          <td><b>${esc(o.kind)}</b></td>
+          <td>${fmtT(o.deadline)}</td>
+          <td>${eur(o.listPriceCents)}</td>
+          <td><input type="number" step="1" min="1" data-opt="${esc(o.kind)}" data-list="${o.listPriceCents}" value="${(o.listPriceCents * 1.35 / 100).toFixed(2)}" style="width:105px"></td>
+        </tr>`).join('')}
+      </table>
+      <div class="row" style="margin-top:8px">
+        <button class="pri" data-act="sendQuote">Send Quote</button>
+        <span class="mute-txt">Multiplier ×</span>
+        <input type="number" step="0.05" value="1.35" style="width:70px" data-mult>
+        <button class="sm" data-act="applyMult">Apply × List</button>
+        <button class="sm bad-btn" data-act="declineReq" title="Quotes 4.5× list so competitor wins and you lose zero dealer goodwill">Polite Decline (4.5× List)</button>
+        <span class="mute-txt" style="font-size:11.5px">Clear an input box to skip offering that option.</span>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = h;
+}
+
+/* ---------- Tab 4: Gigs & Drivers ---------- */
+function composerHTML() {
+  const openOrders = (S.snap ? S.snap.orders : []).filter(o => o.status !== 'delivered' && o.status !== 'cancelled');
+  if (!openOrders.length) {
+    return `<div class="req-card"><b>Manual Gig Composer</b><div class="mute-txt">No active undelivered orders need manual posting right now.</div></div>`;
+  }
+  const cur = (S.composerOrder && openOrders.find(o => o.id === S.composerOrder)) || openOrders[openOrders.length - 1];
+  S.composerOrder = cur.id;
+  const req = S.reqs[cur.id];
+  const baseEur = ((req ? req.referenceFeeCents : Math.round(cur.priceCents * 0.6)) * 1.3 / 100).toFixed(0);
+
+  return `<div class="req-card" id="composer">
+    <div class="row" style="margin-top:0"><b>🛠️ Manual Gig Composer</b><span class="mute-txt">(Or let Python SmartDesk handle posting, chaining & offers automatically)</span></div>
+    <div class="row">
+      <select id="cmpOrder" style="min-width:260px">
+        ${openOrders.map(o => `<option value="${esc(o.id)}"${o.id === cur.id ? ' selected' : ''}>${esc(o.id)} · ${esc(routeText(o.legs))} (due ${fmtT(o.deadline)})</option>`).join('')}
+      </select>
+      <span>Opening Fee €</span><input id="cmpFee" type="number" step="5" value="${baseEur}" style="width:82px">
+      <span>Max Ramp ×</span><input id="cmpMax" type="number" step="0.1" value="1.4" style="width:68px">
+      <span>+% / Step</span><input id="cmpFrac" type="number" step="2" value="10" style="width:64px">
+      <span>Every (min)</span><input id="cmpStep" type="number" step="15" value="60" style="width:64px">
+    </div>
+    <div class="row">
+      <label class="ck"><input type="checkbox" id="cmpExp" ${cur.legs.some(l => l.car.premium) ? 'checked' : ''}>Experienced Only (Premium)</label>
+      <label class="ck"><input type="checkbox" id="cmpMan">Manual Licence</label>
+      <label class="ck"><input type="checkbox" id="cmpPl">Bring Trade Plates (+30m)</label>
+      <label class="ck"><input type="checkbox" id="cmpChg">EV Charging Stop (+40m)</label>
+      <label class="ck"><input type="checkbox" id="cmpComb" checked>Combine Trade-In Legs</label>
+      <button class="pri sm" data-act="postGig">Post Gig</button>
+    </div>
+  </div>`;
+}
+
+function renderGigsAndDrivers() {
+  const el = $('#tab-gig');
+  const s = S.snap;
+  if (!s) { el.innerHTML = '<p class="mute-txt">No world selected.</p>'; return; }
+
+  const views = gigViewsCount();
+  const gs = s.gigs
+    .filter(g => S.gigShowAll || g.status === 'open' || g.status === 'booked' || g.status === 'working')
+    .slice()
+    .reverse();
+
+  let h = composerHTML();
+  h += `<div class="row" style="margin:10px 0 6px">
+    <b>🚗 Active Gigs (${gs.length})</b>
+    <label class="ck"><input type="checkbox" id="gigShowAllCk" ${S.gigShowAll ? 'checked' : ''}>Show completed / withdrawn gigs</label>
+  </div>`;
+
+  h += `<div class="scroll-area" style="max-height:310px"><table>
+    <tr><th>Gig</th><th>Stops (Readable)</th><th>Status & Driver</th><th>Current Fee</th><th>Views</th><th>Schedule Ramp</th><th>Controls</th></tr>`;
+  for (const g of gs.slice(0, 150)) {
+    const stopsHuman = g.stops.map(st => {
+      const ord = s.orders.find(x => x.id === st.orderId);
+      const pl = ord ? (st.kind === 'pickup' ? pn(ord.legs[st.leg].pickup.placeId) : pn(ord.legs[st.leg].delivery.placeId)) : '';
+      return `${st.kind === 'pickup' ? '▲ Pick' : '▼ Drop'} ${st.orderId}${pl ? ` (${pl})` : ''}`;
+    }).join(' → ');
+    const schedStr = g.schedule.map(x => `${fmtT(x.at).slice(4)} €${(x.feeCents / 100).toFixed(0)}`).join(' → ');
+    const btns = [];
+    if (g.status === 'open') {
+      btns.push(`<button class="sm" data-act="reprice" data-gid="${esc(g.id)}">Reprice</button>`);
+      btns.push(`<button class="sm good-btn" data-act="offer" data-gid="${esc(g.id)}">Direct Offer</button>`);
+      btns.push(`<button class="sm bad-btn" data-act="withdraw" data-gid="${esc(g.id)}">Withdraw</button>`);
+    } else if (g.status === 'booked') {
+      btns.push(`<button class="sm warn-btn" data-act="release" data-gid="${esc(g.id)}">Release Driver</button>`);
+    }
+    h += `<tr>
+      <td><b>${esc(g.id)}</b><br><span class="mute-txt">${fmtT(g.postedAt)}</span></td>
+      <td style="font-size:12px">${esc(stopsHuman)}</td>
+      <td><span class="badge ${g.status === 'working' || g.status === 'done' ? 'good' : (g.status === 'booked' ? 'warn' : 'mute')}">${esc(g.status)}</span>${g.driverId ? `<br><span class="mute-txt">${esc(g.driverId)}</span>` : ''}</td>
+      <td><b>${eur0(g.feeCents)}</b></td>
+      <td>👁 ${views[g.id] || 0}</td>
+      <td class="mute-txt" style="font-size:11px;max-width:210px">${esc(schedStr)}</td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${btns.join('')}</div></td>
+    </tr>`;
+  }
+  h += `</table></div>`;
+
+  // Driver Supply Directory
+  h += `<h3 style="margin-top:16px"><span>🧑‍✈️ Finland Freelance Driver Roster (${S.drivers.length} drivers)</span></h3>`;
+  if (!S.drivers.length) {
+    h += `<p class="mute-txt">Loading driver roster…</p>`;
+  } else {
+    const byHome = {};
+    S.drivers.forEach(d => byHome[d.homePlaceId] = (byHome[d.homePlaceId] || 0) + 1);
+    const topTowns = Object.entries(byHome).sort((a, b) => b[1] - a[1]);
+    const busySet = new Set(s.driverPositions.map(d => d.driverId));
+    h += `<div class="row" style="margin-bottom:8px;gap:5px">
+      ${topTowns.slice(0, 14).map(([pid, n]) => `<span class="badge mute" style="cursor:pointer" onclick="setCityFilter('${esc(pid)}')">${esc(pn(pid))}: ${n}</span>`).join('')}
+    </div>`;
+    h += `<div class="scroll-area" style="max-height:260px"><table>
+      <tr><th>Driver ID</th><th>Home Town</th><th>Rating</th><th>Licence</th><th>Completed</th><th>Drops</th><th>Live Status</th></tr>
+      ${S.drivers.slice().sort((a, b) => b.rating - a.rating || b.completedGigs - a.completedGigs).slice(0, 120).map(d => `<tr>
+        <td><b>${esc(d.id)}</b></td>
+        <td>${esc(pn(d.homePlaceId))}</td>
+        <td>★ ${d.rating.toFixed(1)} ${d.rating >= 4.8 && d.completedGigs >= 50 ? '<span class="badge cyan">Exp</span>' : ''}</td>
+        <td>${d.licence === 'manual' ? 'Manual + Auto' : '<span class="mute-txt">Auto only</span>'}</td>
+        <td>${d.completedGigs}</td>
+        <td>${d.drops}</td>
+        <td>${busySet.has(d.id) ? '<span class="badge good">Driving Your Car</span>' : '<span class="mute-txt">—</span>'}</td>
+      </tr>`).join('')}
+    </table></div>`;
+  }
+  el.innerHTML = h;
+}
+
+/* ---------- Tab 5: Money, Worst Orders Autopsy & Post-Game Reveal ---------- */
+function renderMoneyAndReveal() {
+  const el = $('#tab-rev');
+  const s = S.snap;
+  if (!s) { el.innerHTML = '<p class="mute-txt">No world selected.</p>'; return; }
+
+  const lMap = orderLedgerMap();
+  const worst = Object.entries(lMap).sort((a, b) => a[1] - b[1]).slice(0, 14);
+
+  let h = `<div class="row" style="justify-content:space-between">
+    <div>
+      <b style="font-size:14px">🔬 Post-Game Reveal & Order Profitability Autopsy</b>
+      <div class="mute-txt" style="font-size:12px">After a practice world ends, load its Reveal to inspect quote win-rates by price multiple and hidden note truths!</div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="pri sm" data-act="loadReveal" ${!ended() ? 'disabled title="Available once the world reaches Wednesday 22:00"' : ''}>🔍 Analyze Reveal</button>
+      <button class="sm" data-act="downloadReveal" ${!ended() ? 'disabled' : ''}>⬇ JSON</button>
+    </div>
+  </div>`;
+
+  if (S.reveal) {
+    const rv = S.reveal;
+    // Bucket quote win rate by primary quote / list ratio
+    const buckets = [
+      { label: '< 1.15× list', min: 0, max: 1.15, w: 0, l: 0 },
+      { label: '1.15 – 1.30× list', min: 1.15, max: 1.30, w: 0, l: 0 },
+      { label: '1.30 – 1.45× list', min: 1.30, max: 1.45, w: 0, l: 0 },
+      { label: '1.45 – 1.65× list', min: 1.45, max: 1.65, w: 0, l: 0 },
+      { label: '1.65 – 2.50× list', min: 1.65, max: 2.50, w: 0, l: 0 },
+      { label: '> 2.50× (Declines)', min: 2.50, max: 99, w: 0, l: 0 },
+    ];
+    let unquoted = 0;
+    for (const item of rv.requests) {
+      if (!item.quote || item.outcome === 'unquoted') { unquoted++; continue; }
+      const firstOpt = item.request.options.find(o => item.quote[o.kind] != null);
+      if (!firstOpt) continue;
+      const mult = item.quote[firstOpt.kind] / firstOpt.listPriceCents;
+      const b = buckets.find(x => mult >= x.min && mult < x.max);
+      if (b) { if (item.outcome === 'won') b.w++; else b.l++; }
+    }
+
+    h += `<div class="req-card" style="margin-top:10px;border-color:var(--acc)">
+      <b>📊 Revealed Quote Win-Rate vs List Price (${rv.requests.length} total requests, ${unquoted} unquoted)</b>
+      <table style="margin-top:6px">
+        <tr><th>Quote / List Bucket</th><th>Won</th><th>Lost</th><th>Win Rate</th><th>Visual</th></tr>
+        ${buckets.map(b => {
+          const tot = b.w + b.l;
+          const pct = tot ? Math.round(100 * b.w / tot) : 0;
+          return `<tr>
+            <td><b>${esc(b.label)}</b></td>
+            <td class="good-txt">${b.w}</td>
+            <td class="mute-txt">${b.l}</td>
+            <td><b>${tot ? pct + '%' : '—'}</b></td>
+            <td><div class="wf-bar-bg" style="width:160px"><div class="wf-bar" style="width:${pct}%;background:var(--acc)"></div></div></td>
+          </tr>`;
+        }).join('')}
+      </table>
+      <div class="mute-txt" style="margin-top:6px;font-size:12px">Revealed Gig Views: <b>${rv.views.length}</b> · Revealed Won Orders with Truth Data: <b>${rv.orders.length}</b></div>
+    </div>`;
+  }
+
+  h += `<h3 style="margin-top:14px"><span>📉 Lowest-Margin Orders (Direct Ledger Lines)</span></h3>`;
+  if (!worst.length) {
+    h += `<p class="mute-txt">No order-linked ledger lines yet.</p>`;
+  } else {
+    h += `<table><tr><th>Order</th><th>Route</th><th>Ledger Net</th><th>Why</th></tr>`;
+    for (const [oid, cents] of worst) {
+      const ord = s.orders.find(x => x.id === oid);
+      const lines = S.events.filter(e => e.kind === 'ledger' && e.line.orderId === oid).map(e => `${e.line.kind}: ${eur0(e.line.cents)}`);
+      h += `<tr>
+        <td><b>${esc(oid)}</b></td>
+        <td>${ord ? esc(routeText(ord.legs)) : '—'}</td>
+        <td class="${cents >= 0 ? 'good-txt' : 'bad-txt'}"><b>${eur(cents)}</b></td>
+        <td class="mute-txt" style="font-size:12px">${esc(lines.join(' · '))}</td>
+      </tr>`;
+    }
+    h += `</table>`;
+  }
+  el.innerHTML = h;
+}
+
+/* ---------- Tab 6: Rankings, Event Log & Raw API ---------- */
+async function loadLeaderboard(level) {
+  level = level || ($('#bdLevel') ? $('#bdLevel').value : '8');
+  const out = $('#bdOut');
+  if (!out) return;
+  out.innerHTML = '<span class="mute-txt">Loading practice rankings…</span>';
+  try {
+    const b = await api('GET', '/v1/leaderboards/practice?level=' + level);
+    const renderSeason = (title, s) => {
+      if (!s) return '';
+      return `<h3 style="margin-top:10px">${esc(title)}: ${esc(s.name)}</h3>
+        <div class="scroll-area" style="max-height:240px"><table>
+          <tr><th>Rank</th><th>Team</th><th>Runs</th><th>Qualified (≥90%)</th><th>Total Margin</th><th>On-Time</th></tr>
+          ${s.teams.slice(0, 30).map(x => `<tr>
+            <td><b>${x.rank == null ? '—' : '#' + x.rank}</b></td>
+            <td><b>${esc(x.name || x.team)}</b></td>
+            <td>${x.played}/5</td>
+            <td>${x.ranked ? '<span class="badge good">✓ Ranked</span>' : '<span class="badge mute">—</span>'}</td>
+            <td class="${(x.marginCents || 0) >= 0 ? 'good-txt' : 'bad-txt'}"><b>${x.marginCents == null ? '—' : eur(x.marginCents)}</b></td>
+            <td>${x.onTimeShare == null ? '—' : (x.onTimeShare * 100).toFixed(1) + '%'}</td>
+          </tr>`).join('')}
+        </table></div>`;
+    };
+    out.innerHTML = (renderSeason('Current Round', b.current) + renderSeason('Previous Round', b.previous)) || '<p class="mute-txt">No ranking round active at this level yet.</p>';
+  } catch (e) {
+    out.textContent = e.message;
+  }
+}
+
+function describeEv(e) {
+  switch (e.kind) {
+    case 'price_request': return `${e.request.id} (${e.request.dealerId}) ${routeText(e.request.legs)} · typical ${eur0(e.request.referenceFeeCents)}`;
+    case 'order_won': return `${e.order.id} ${routeText(e.order.legs)} · ${e.order.option} ${eur(e.order.priceCents)} due ${fmtT(e.order.deadline)}`;
+    case 'order_lost': return `${e.requestId} went to competitor`;
+    case 'gig_booked': return `${e.gigId} booked by ${e.driverId} @ ${eur(e.feeCents)}`;
+    case 'gig_dropped': case 'no_show': return `${e.gigId} lost driver ${e.driverId}`;
+    case 'driver_late': return `${e.gigId} (${e.driverId}) late pickup @ ${fmtT(e.pickupAt)}`;
+    case 'visit_failed': return `${e.orderId} leg ${e.leg} failed: ${e.reason} (${e.gigId})`;
+    case 'delivered': return `${e.orderId} leg ${e.leg} delivered @ ${pn(e.placeId)}`;
+    case 'deadline_close': return `${e.orderId} 3h warning — last pickup ${fmtT(e.lastPickupAt)}`;
+    case 'ledger': return `${e.line.kind} ${eur(e.line.cents)} ${e.line.orderId || ''} ${e.line.detail || ''}`;
+    default: return JSON.stringify(e);
+  }
+}
+
+function renderBoardAndConsole() {
+  const el = $('#tab-board');
+  if (el.dataset.ready !== '1') {
+    el.dataset.ready = '1';
+    el.innerHTML = `
+      <div class="row">
+        <b>🏆 Practice Season Leaderboard</b>
+        <span>Level</span>
+        <select id="bdLevel">${[1,2,3,4,5,6,7,8].map(l => `<option value="${l}"${l === 8 ? ' selected' : ''}>Level ${l}</option>`).join('')}</select>
+        <button class="sm" data-act="refreshBoard">↻ Load Rankings</button>
+      </div>
+      <div id="bdOut" style="margin-bottom:16px"></div>
+
+      <h3><span>📜 Raw World Event Stream</span></h3>
+      <div id="evStreamBox" class="scroll-area" style="max-height:220px;margin-bottom:16px"></div>
+
+      <h3><span>⌨️ Developer Raw API Console</span></h3>
+      <div class="mute-txt" style="margin-bottom:4px">POST /actions JSON array:</div>
+      <textarea id="conActs" rows="4">[\n  {"type": "quote", "requestId": "REQ_ID", "prices": {"next_day": 22000}}\n]</textarea>
+      <div class="row"><button class="sm pri" data-act="rawActs">Send Raw Actions</button></div>
+      <pre id="conOut"></pre>
+    `;
+    loadLeaderboard('8');
+  }
+
+  const evBox = $('#evStreamBox');
+  if (evBox) {
+    const recent = S.events.filter(e => e.kind !== 'gig_viewed').slice(-120).reverse();
+    evBox.innerHTML = recent.length
+      ? recent.map(e => `<div style="font-family:ui-monospace,monospace;font-size:11.5px;padding:3px 0;border-bottom:1px solid var(--line)"><span class="mute-txt">${fmtT(e.at)}</span> <b>${esc(e.kind)}</b> ${esc(describeEv(e))}</div>`).join('')
+      : '<span class="mute-txt">No events yet.</span>';
+  }
+}
+
+/* ---------- Click & Change Handlers ---------- */
+function switchTab(name) {
+  $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  $$('.tab-pane').forEach(p => p.classList.toggle('on', p.id === 'tab-' + name));
+  if (name === 'board') loadLeaderboard();
+}
+
+const H = {
+  adv: d => manualStep({ by: +d.by }),
+  advEvt: d => {
+    if (!S.snap) return;
+    manualStep({ untilEvent: d.k === 'attn' ? ATTN : [d.k], max: Math.min(S.snap.endsAt, S.snap.now + 1440) });
+  },
+  setOrdFilter: d => { S.ordFilter = d.f; renderOrders(); },
+  applyMult: (d, el) => {
+    const card = el.closest('.req-card');
+    const m = parseFloat(card.querySelector('[data-mult]').value) || 1;
+    card.querySelectorAll('[data-opt]').forEach(inp => inp.value = (Math.round(inp.dataset.list * m) / 100).toFixed(2));
+  },
+  sendQuote: (d, el) => {
+    const card = el.closest('.req-card'), prices = {};
+    card.querySelectorAll('[data-opt]').forEach(inp => {
+      if (inp.value !== '') prices[inp.dataset.opt] = Math.max(100, Math.round(parseFloat(inp.value) * 100));
+    });
+    if (!Object.keys(prices).length) return toast('Enter at least one option price');
+    sendActions([{ type: 'quote', requestId: card.dataset.rid, prices }]);
+  },
+  declineReq: (d, el) => {
+    const card = el.closest('.req-card'), prices = {};
+    const inps = [...card.querySelectorAll('[data-opt]')];
+    const last = inps[inps.length - 1];
+    prices[last.dataset.opt] = Math.round(last.dataset.list * 4.5);
+    sendActions([{ type: 'quote', requestId: card.dataset.rid, prices }]);
+  },
+  composeFor: d => { S.composerOrder = d.oid; switchTab('gig'); renderGigsAndDrivers(); },
+  postGig: () => {
+    const o = S.snap.orders.find(x => x.id === $('#cmpOrder').value);
+    if (!o) return;
+    const base = Math.max(100, Math.round(parseFloat($('#cmpFee').value) * 100));
+    const maxM = parseFloat($('#cmpMax').value) || 1.4;
+    const stepFrac = (parseFloat($('#cmpFrac').value) || 10) / 100;
+    const stepMin = parseInt($('#cmpStep').value) || 60;
+    const schedule = [];
+    let prev = 100;
+    for (let k = 0; k < 12; k++) {
+      const m = Math.min(maxM, 1 + stepFrac * k);
+      const f = Math.max(prev, Math.round(base * m));
+      prev = f;
+      schedule.push({ at: S.snap.now + k * stepMin, feeCents: f });
+      if (m >= maxM) break;
+    }
+    const legs = o.legs.map((_, i) => i).filter(i => o.deliveredAt[i] == null);
+    const audience = { experienced: $('#cmpExp').checked, manualLicence: $('#cmpMan').checked };
+    const plates = $('#cmpPl').checked, chg = $('#cmpChg').checked;
+    const mkStops = idxs => idxs.flatMap(i => [
+      { orderId: o.id, leg: i, kind: 'pickup', withPlates: plates, withCharging: chg },
+      { orderId: o.id, leg: i, kind: 'delivery' },
+    ]);
+    const posts = ($('#cmpComb').checked && legs.length > 1)
+      ? [{ type: 'post', stops: mkStops(legs), audience, schedule }]
+      : legs.map(i => ({ type: 'post', stops: mkStops([i]), audience, schedule }));
+    sendActions(posts);
+  },
+  quickBoost: d => {
+    const nextFee = Math.round((+d.fee) * 1.25);
+    sendActions([{ type: 'reprice', gigId: d.gid, schedule: [{ at: S.snap.now, feeCents: nextFee }] }]);
+  },
+  reprice: d => {
+    const v = prompt('Enter new opening fee in €:');
+    if (!v) return;
+    sendActions([{ type: 'reprice', gigId: d.gid, schedule: [{ at: S.snap.now, feeCents: Math.max(100, Math.round(parseFloat(v) * 100)) }] }]);
+  },
+  offer: d => {
+    const drv = prompt('Driver ID (check Roster below):');
+    if (!drv) return;
+    const f = prompt('Direct Offer fee in €:');
+    if (!f) return;
+    sendActions([{ type: 'offer', gigId: d.gid, driverId: drv.trim(), feeCents: Math.max(100, Math.round(parseFloat(f) * 100)) }]);
+  },
+  withdraw: d => sendActions([{ type: 'withdraw', gigId: d.gid }]),
+  release: d => {
+    if (confirm(`Release booked driver from ${d.gid}? (Costs 25–100% release fee unless driver_late arrived)`)) {
+      sendActions([{ type: 'release', gigId: d.gid }]);
+    }
+  },
+  loadReveal: async () => {
+    try {
+      S.reveal = await wapi('GET', '/reveal');
+      renderMoneyAndReveal();
+      toast('Post-game Reveal loaded!');
+    } catch (e) { toast(e.message, 6500); }
+  },
+  downloadReveal: async () => {
+    try {
+      const rv = S.reveal || await wapi('GET', '/reveal');
+      S.reveal = rv;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(rv, null, 2)], { type: 'application/json' }));
+      a.download = `reveal-${S.wid}.json`;
+      a.click();
+    } catch (e) { toast(e.message); }
+  },
+  refreshBoard: () => loadLeaderboard(),
+  rawActs: async () => {
+    try {
+      const acts = JSON.parse($('#conActs').value);
+      const res = await sendActions(acts);
+      $('#conOut').textContent = JSON.stringify(res, null, 2);
+    } catch (e) { toast(e.message); }
+  },
+};
+
+document.addEventListener('click', e => {
+  const tb = e.target.closest('[data-tab]');
+  if (tb) return switchTab(tb.dataset.tab);
+  const b = e.target.closest('[data-act]');
+  if (b && H[b.dataset.act]) H[b.dataset.act](b.dataset, b);
+});
+
+document.addEventListener('change', e => {
+  if (e.target.id === 'cmpOrder') { S.composerOrder = e.target.value; renderGigsAndDrivers(); }
+  if (e.target.id === 'gigShowAllCk') { S.gigShowAll = e.target.checked; renderGigsAndDrivers(); }
+  if (e.target.id === 'mpHomes' || e.target.id === 'mpLabels' || e.target.id === 'mpReq') renderMap();
+  if (e.target.id === 'bdLevel') loadLeaderboard(e.target.value);
+});
+
+$('#worldSel').onchange = async e => { await stopBot(); loadWorld(e.target.value); };
+$('#bRenameWorld').onclick = async () => {
+  if (!S.wid) return toast('Select a world first');
+  const cur = (S.worlds.find(w => w.worldId === S.wid) || {}).name || S.wid;
+  const next = prompt('Enter a human-readable name for this world:', cur);
+  if (!next || !next.trim()) return;
+  try {
+    await botApi('POST', '/rename', { worldId: S.wid, name: next.trim() });
+    await refreshWorldsList();
+    toast(`Renamed world to "${next.trim()}"`);
+  } catch (e) { toast(e.message); }
+};
+$('#bRefresh').onclick = () => syncWorld().catch(e => toast(e.message));
+$('#bAnalytics').onclick = () => {
+  const curW = S.worlds.find(w => w.worldId === S.wid);
+  if (curW && curW.batchId) {
+    window.open('/analytics?batchId=' + encodeURIComponent(curW.batchId), '_blank');
+  } else {
+    window.open('/analytics' + (S.wid ? '?worldId=' + encodeURIComponent(S.wid) : ''), '_blank');
+  }
+};
+$('#bGuide').onclick = () => toggleGuide();
+$('#bTheme').onclick = () => {
+  document.body.classList.toggle('light');
+  localStorage.setItem('spread_theme', document.body.classList.contains('light') ? 'light' : 'dark');
+};
+
+$('#bBotTurbo').onclick = () => startBot('turbo');
+$('#bBotPack5').onclick = async () => {
+  const level = +$('#nwLevel').value || 8;
+  const name = $('#nwName').value.trim();
+  const seedPrefix = $('#nwSeed').value.trim();
+  try {
+    const st = await botApi('POST', '/start-pack', {
+      level,
+      count: 5,
+      name: name || undefined,
+      seedPrefix: seedPrefix || undefined,
+    });
+    S.bot = st;
+    wasBotRunning = true;
+    renderBotControls();
+    toast(`Started 5-Week Practice Pack (${(st.pack && st.pack.batchName) || 'L' + level})`);
+  } catch (e) { toast(e.message, 6500); }
+};
+$('#bBotWatch').onclick = () => startBot('watch');
+$('#bBotDay').onclick = () => startBot('day');
+$('#bBotStep').onclick = () => startBot('step');
+$('#bBotFinal').onclick = () => startBot('final');
+$('#bBotStop').onclick = stopBot;
+
+$('#bCreate').onclick = async () => {
+  const level = +$('#nwLevel').value;
+  const name = $('#nwName').value.trim();
+  const seed = $('#nwSeed').value.trim();
+  const board = $('#nwBoard').checked;
+  if (board && !confirm(`Start an official Level ${level} Ranking Run? It counts toward your team's season score and cannot be forked or deleted cleanly.`)) return;
+  const body = { level };
+  if (name) body.name = name;
+  if (board) body.board = true;
+  else if (seed) body.seed = seed;
+  try {
+    await stopBot();
+    const r = await api('POST', '/v1/worlds', body);
+    await loadWorlds(r.worldId);
+    toast(`Created "${r.name || r.worldId}"`);
+  } catch (e) { toast(e.message, 7000); }
+};
+
+$('#bFork').onclick = async () => {
+  if (!S.wid) return;
+  try {
+    await stopBot();
+    const r = await wapi('POST', '/fork');
+    await loadWorlds(r.worldId);
+    toast(`Forked into ${r.worldId}`);
+  } catch (e) { toast(e.message, 7000); }
+};
+
+$('#bDelete').onclick = async () => {
+  if (!S.wid) return;
+  const w = S.worlds.find(x => x.worldId === S.wid);
+  const msg = (w && w.boardRun && !w.ended)
+    ? 'WARNING: This is a live RANKING RUN! Deleting it forces it to run to the end unattended and STILL counts! Delete anyway?'
+    : `Delete world ${S.wid}?`;
+  if (!confirm(msg)) return;
+  await stopBot();
+  try {
+    await wapi('DELETE', '');
+    S.wid = null;
+    await loadWorlds();
+  } catch (e) { toast(e.message, 7000); }
+};
+
+init();
+</script>
+</body>
+</html>

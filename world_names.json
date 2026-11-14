@@ -1,0 +1,546 @@
+{
+  "worlds": {
+    "w985fb556b8e6a6bd5c4c": {
+      "worldId": "w985fb556b8e6a6bd5c4c",
+      "name": "Fork #1 · Aurora (L1)",
+      "level": 1,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": -1998800,
+        "revenueCents": 0,
+        "wonOrders": 117,
+        "onTimeShare": 0,
+        "ranked": false
+      }
+    },
+    "we01594858a7016b90c3e": {
+      "worldId": "we01594858a7016b90c3e",
+      "name": "Practice #2 · Pohjola (L1)",
+      "level": 1,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": 574529,
+        "revenueCents": 6141000,
+        "wonOrders": 811,
+        "onTimeShare": 0.9198520345252774,
+        "ranked": true
+      }
+    },
+    "w6d0b0ab809d0fe19335b": {
+      "worldId": "w6d0b0ab809d0fe19335b",
+      "name": "S7 Rank #1 · Sisu (L1)",
+      "level": 1,
+      "kind": "practice",
+      "boardRun": 1,
+      "season": 7,
+      "batchId": "season-7-L1",
+      "batchName": "Season 7 Ranking Set (L1 · 5 Weeks)",
+      "batchIndex": 1,
+      "batchTotal": 5,
+      "score": {
+        "marginCents": 478611,
+        "revenueCents": 6420500,
+        "wonOrders": 832,
+        "onTimeShare": 0.9338942307692307,
+        "ranked": true
+      }
+    },
+    "wb2275b93eb47fe8215d7": {
+      "worldId": "wb2275b93eb47fe8215d7",
+      "name": "Practice #3 · Sampo (L1)",
+      "level": 1,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": 627400,
+        "revenueCents": 4637400,
+        "wonOrders": 544,
+        "onTimeShare": 0.9632352941176471,
+        "ranked": true
+      }
+    },
+    "w827d8fb44d1241f0218b": {
+      "worldId": "w827d8fb44d1241f0218b",
+      "name": "Practice #4 · Tapio (L1)",
+      "level": 1,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": 355821,
+        "revenueCents": 4037500,
+        "wonOrders": 494,
+        "onTimeShare": 0.9493927125506073,
+        "ranked": true
+      }
+    },
+    "w021702c9070f2309757d": {
+      "worldId": "w021702c9070f2309757d",
+      "name": "Practice #5 · Kaleva (L2)",
+      "level": 2,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": -617926,
+        "revenueCents": 8182000,
+        "wonOrders": 987,
+        "onTimeShare": 0.9432624113475178,
+        "ranked": true
+      }
+    },
+    "w082a16bb939326a69769": {
+      "worldId": "w082a16bb939326a69769",
+      "name": "Fork #6 · Otava (L2)",
+      "level": 2,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": -617926,
+        "revenueCents": 8182000,
+        "wonOrders": 987,
+        "onTimeShare": 0.9432624113475178,
+        "ranked": true
+      }
+    },
+    "w227f720b86631f29a572": {
+      "worldId": "w227f720b86631f29a572",
+      "name": "Practice #7 · Sisu (L2)",
+      "level": 2,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": 1226044,
+        "revenueCents": 7113600,
+        "wonOrders": 888,
+        "onTimeShare": 0.9346846846846847,
+        "ranked": true
+      }
+    },
+    "wa160ae70dfc498c75403": {
+      "worldId": "wa160ae70dfc498c75403",
+      "name": "Practice #8 · Aino (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": -1898273,
+        "revenueCents": 4169857,
+        "wonOrders": 555,
+        "onTimeShare": 0.7351351351351352,
+        "ranked": false
+      }
+    },
+    "w2b91cb13652193dfb439": {
+      "worldId": "w2b91cb13652193dfb439",
+      "name": "Fork #9 · Ilmari (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": -1589284,
+        "revenueCents": 3333600,
+        "wonOrders": 854,
+        "onTimeShare": 0.6104553119730185,
+        "ranked": false
+      }
+    },
+    "f21cdbb0a4a4e0aed8ad1": {
+      "worldId": "f21cdbb0a4a4e0aed8ad1",
+      "name": "Live Final · Championship (L8)",
+      "level": 8,
+      "kind": "final",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": 0,
+        "revenueCents": 0,
+        "wonOrders": 0,
+        "onTimeShare": 1,
+        "ranked": false
+      }
+    },
+    "wbd56160c2f8541bb0b5d": {
+      "worldId": "wbd56160c2f8541bb0b5d",
+      "name": "Practice #10 · Vellamo (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": 962265,
+        "revenueCents": 3974650,
+        "wonOrders": 370,
+        "onTimeShare": 0.9540540540540541,
+        "ranked": true
+      }
+    },
+    "w1f48e1a4066caf08885f": {
+      "worldId": "w1f48e1a4066caf08885f",
+      "name": "Practice #11 · Saimaa (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": 1321808,
+        "revenueCents": 3401431,
+        "wonOrders": 378,
+        "onTimeShare": 0.9338624338624338,
+        "ranked": true
+      }
+    },
+    "w3be15372d1385bfbd84b": {
+      "worldId": "w3be15372d1385bfbd84b",
+      "name": "S8 Rank #1 · Sisu (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": 1,
+      "season": 8,
+      "batchId": "season-8-L8",
+      "batchName": "Season 8 Ranking Set (L8 · 5 Weeks)",
+      "batchIndex": 1,
+      "batchTotal": 5,
+      "score": {
+        "marginCents": 1205060,
+        "revenueCents": 4372606,
+        "wonOrders": 379,
+        "onTimeShare": 0.9076517150395779,
+        "ranked": true
+      }
+    },
+    "w1f612dfe871e8547be06": {
+      "worldId": "w1f612dfe871e8547be06",
+      "name": "S8 Rank #2 · Sampo (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": 2,
+      "season": 8,
+      "batchId": "season-8-L8",
+      "batchName": "Season 8 Ranking Set (L8 · 5 Weeks)",
+      "batchIndex": 2,
+      "batchTotal": 5,
+      "score": {
+        "marginCents": 1625136,
+        "revenueCents": 4702361,
+        "wonOrders": 394,
+        "onTimeShare": 0.8934010152284264,
+        "ranked": false
+      }
+    },
+    "wd3f681c3a130a66f9044": {
+      "worldId": "wd3f681c3a130a66f9044",
+      "name": "S8 Rank #3 · Otava (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": 3,
+      "season": 8,
+      "batchId": "season-8-L8",
+      "batchName": "Season 8 Ranking Set (L8 · 5 Weeks)",
+      "batchIndex": 3,
+      "batchTotal": 5,
+      "score": {
+        "marginCents": 988319,
+        "revenueCents": 3375222,
+        "wonOrders": 301,
+        "onTimeShare": 0.8704318936877077,
+        "ranked": false
+      }
+    },
+    "w2be81bcb7206f464ef51": {
+      "worldId": "w2be81bcb7206f464ef51",
+      "name": "S8 Rank #4 · Aino (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": 4,
+      "season": 8,
+      "batchId": "season-8-L8",
+      "batchName": "Season 8 Ranking Set (L8 · 5 Weeks)",
+      "batchIndex": 4,
+      "batchTotal": 5,
+      "score": {
+        "marginCents": 982749,
+        "revenueCents": 3479016,
+        "wonOrders": 368,
+        "onTimeShare": 0.904891304347826,
+        "ranked": true
+      }
+    },
+    "wae648343c25d4b865843": {
+      "worldId": "wae648343c25d4b865843",
+      "name": "S8 Rank #5 · Ukko (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": 5,
+      "season": 8,
+      "batchId": "season-8-L8",
+      "batchName": "Season 8 Ranking Set (L8 · 5 Weeks)",
+      "batchIndex": 5,
+      "batchTotal": 5,
+      "score": {
+        "marginCents": 1115061,
+        "revenueCents": 3586536,
+        "wonOrders": 365,
+        "onTimeShare": 0.9260273972602739,
+        "ranked": true
+      }
+    },
+    "f57518f40f4de3dc67d9d": {
+      "worldId": "f57518f40f4de3dc67d9d",
+      "name": "Live Final · Championship (L8)",
+      "level": 8,
+      "kind": "final",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null
+    },
+    "w1f0bcebdb92500db51ce": {
+      "worldId": "w1f0bcebdb92500db51ce",
+      "name": "Practice #12 · Inari (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": 43681,
+        "revenueCents": 3816244,
+        "wonOrders": 317,
+        "onTimeShare": 0.7413249211356467,
+        "ranked": false
+      }
+    },
+    "w24a5fbaadfabd52289be": {
+      "worldId": "w24a5fbaadfabd52289be",
+      "name": "Practice #13 · Polaris (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "score": {
+        "marginCents": 591494,
+        "revenueCents": 4092293,
+        "wonOrders": 339,
+        "onTimeShare": 0.8112094395280236,
+        "ranked": false
+      }
+    },
+    "w431d7ac81170687d7c63": {
+      "worldId": "w431d7ac81170687d7c63",
+      "name": "Aurora · Week 1/5 (L8)",
+      "level": 8,
+      "kind": "practice",
+      "seed": "aurora-p1-w1",
+      "boardRun": null,
+      "season": null,
+      "batchId": "pack-1-79964",
+      "batchName": "Pack #1 · Aurora (L8 · 5 Weeks)",
+      "batchIndex": 1,
+      "batchTotal": 5,
+      "updatedAt": 1794679965,
+      "score": {
+        "marginCents": 1110456,
+        "revenueCents": 3652761,
+        "wonOrders": 324,
+        "onTimeShare": 0.8796296296296297,
+        "ranked": false
+      }
+    },
+    "wd2a04da853be516d1ac1": {
+      "worldId": "wd2a04da853be516d1ac1",
+      "name": "Aurora · Week 2/5 (L8)",
+      "level": 8,
+      "kind": "practice",
+      "seed": "aurora-p1-w2",
+      "boardRun": null,
+      "season": null,
+      "batchId": "pack-1-79964",
+      "batchName": "Pack #1 · Aurora (L8 · 5 Weeks)",
+      "batchIndex": 2,
+      "batchTotal": 5,
+      "updatedAt": 1794680034,
+      "score": {
+        "marginCents": 1312189,
+        "revenueCents": 4518257,
+        "wonOrders": 343,
+        "onTimeShare": 0.8833819241982507,
+        "ranked": false
+      }
+    },
+    "w0349be0b1de050a038cc": {
+      "worldId": "w0349be0b1de050a038cc",
+      "name": "Aurora · Week 3/5 (L8)",
+      "level": 8,
+      "kind": "practice",
+      "seed": "aurora-p1-w3",
+      "boardRun": null,
+      "season": null,
+      "batchId": "pack-1-79964",
+      "batchName": "Pack #1 · Aurora (L8 · 5 Weeks)",
+      "batchIndex": 3,
+      "batchTotal": 5,
+      "updatedAt": 1794680117,
+      "score": {
+        "marginCents": 1190028,
+        "revenueCents": 3636518,
+        "wonOrders": 315,
+        "onTimeShare": 0.9174603174603174,
+        "ranked": true
+      }
+    },
+    "w80ac3790b2f7c7a0ec28": {
+      "worldId": "w80ac3790b2f7c7a0ec28",
+      "name": "Aurora · Week 4/5 (L8)",
+      "level": 8,
+      "kind": "practice",
+      "seed": "aurora-p1-w4",
+      "boardRun": null,
+      "season": null,
+      "batchId": "pack-1-79964",
+      "batchName": "Pack #1 · Aurora (L8 · 5 Weeks)",
+      "batchIndex": 4,
+      "batchTotal": 5,
+      "updatedAt": 1794680184,
+      "score": {
+        "marginCents": 369640,
+        "revenueCents": 5762212,
+        "wonOrders": 343,
+        "onTimeShare": 0.7113702623906706,
+        "ranked": false
+      }
+    },
+    "w1d303fde0774f97c4e79": {
+      "worldId": "w1d303fde0774f97c4e79",
+      "name": "Aurora · Week 5/5 (L8)",
+      "level": 8,
+      "kind": "practice",
+      "seed": "aurora-p1-w5",
+      "boardRun": null,
+      "season": null,
+      "batchId": "pack-1-79964",
+      "batchName": "Pack #1 · Aurora (L8 · 5 Weeks)",
+      "batchIndex": 5,
+      "batchTotal": 5,
+      "updatedAt": 1794680265,
+      "score": {
+        "marginCents": 1320861,
+        "revenueCents": 3942128,
+        "wonOrders": 358,
+        "onTimeShare": 0.9078212290502793,
+        "ranked": true
+      }
+    }
+  },
+  "batches": {
+    "season-7-L1": {
+      "batchId": "season-7-L1",
+      "batchName": "Season 7 Ranking Set (L1 · 5 Weeks)",
+      "level": 1,
+      "count": 5,
+      "createdAt": 1794679907,
+      "worldIds": [
+        "w6d0b0ab809d0fe19335b"
+      ]
+    },
+    "season-8-L8": {
+      "batchId": "season-8-L8",
+      "batchName": "Season 8 Ranking Set (L8 · 5 Weeks)",
+      "level": 8,
+      "count": 5,
+      "createdAt": 1794679907,
+      "worldIds": [
+        "w3be15372d1385bfbd84b",
+        "w1f612dfe871e8547be06",
+        "wd3f681c3a130a66f9044",
+        "w2be81bcb7206f464ef51",
+        "wae648343c25d4b865843"
+      ]
+    },
+    "pack-1-79964": {
+      "batchId": "pack-1-79964",
+      "batchName": "Pack #1 · Aurora (L8 · 5 Weeks)",
+      "codename": "Aurora",
+      "level": 8,
+      "count": 5,
+      "createdAt": 1794679964,
+      "worldIds": [
+        "w431d7ac81170687d7c63",
+        "wd2a04da853be516d1ac1",
+        "w0349be0b1de050a038cc",
+        "w80ac3790b2f7c7a0ec28",
+        "w1d303fde0774f97c4e79"
+      ]
+    }
+  },
+  "counters": {
+    "practice": 13,
+    "pack": 1
+  }
+}

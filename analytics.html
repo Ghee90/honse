@@ -1,0 +1,1126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spread — Single &amp; 5-Week Forensic Analytics</title>
+<style>
+:root {
+  --bg: #0b1020;
+  --bg-card: #121a2f;
+  --bg-elev: #19233f;
+  --ink: #ecf2ff;
+  --ink-dim: #95a4c6;
+  --line: #253357;
+  --acc: #3b82f6;
+  --acc-bg: rgba(59,130,246,0.14);
+  --good: #10b981;
+  --good-bg: rgba(16,185,129,0.14);
+  --warn: #f59e0b;
+  --warn-bg: rgba(245,158,11,0.15);
+  --bad: #ef4444;
+  --bad-bg: rgba(239,68,68,0.15);
+  --purp: #a855f7;
+  --purp-bg: rgba(168,85,247,0.15);
+  --radius: 12px;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+body.light {
+  --bg: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-elev: #f8fafc;
+  --ink: #0f172a;
+  --ink-dim: #64748b;
+  --line: #e2e8f0;
+  --acc: #2563eb;
+  --good: #059669;
+  --warn: #d97706;
+  --bad: #dc2626;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 15px; }
+.brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--purp); box-shadow: 0 0 10px var(--purp); }
+.sp { flex: 1; }
+button, select, input, a.btn {
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 11px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+input { cursor: text; }
+button:hover, a.btn:hover { border-color: var(--acc); }
+button.pri { background: var(--acc); border-color: var(--acc); color: #fff; font-weight: 600; }
+button.purp-btn { background: var(--purp-bg); border-color: var(--purp); color: #d8b4fe; font-weight: 600; }
+body.light button.purp-btn { color: #6b21a8; }
+button.sm { padding: 4px 8px; font-size: 12px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; border: 1px solid transparent;
+}
+.badge.good { background: var(--good-bg); color: var(--good); border-color: rgba(16,185,129,0.3); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); border-color: rgba(245,158,11,0.3); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); border-color: rgba(239,68,68,0.3); }
+.badge.info { background: var(--acc-bg); color: var(--acc); border-color: rgba(59,130,246,0.3); }
+.badge.purp { background: var(--purp-bg); color: #c084fc; border-color: rgba(168,85,247,0.35); }
+
+main { max-width: 1640px; margin: 0 auto; padding: 16px 20px 48px; display: flex; flex-direction: column; gap: 16px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+@media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+.kpi {
+  background: var(--bg-card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.kpi-lbl { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-dim); font-weight: 600; display: flex; justify-content: space-between; }
+.kpi-val { font-size: 25px; font-weight: 800; font-variant-numeric: tabular-nums; margin: 5px 0 3px; }
+.kpi-sub { font-size: 12px; color: var(--ink-dim); }
+.prog-bg { height: 7px; background: var(--bg-elev); border-radius: 99px; overflow: hidden; margin-top: 7px; }
+.prog-fg { height: 100%; border-radius: 99px; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3-2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; }
+@media (max-width: 1120px) { .grid-2, .grid-3-2 { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--bg-card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
+}
+.card-hd { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.card-title { font-size: 14.5px; font-weight: 700; }
+.card-sub { font-size: 12px; color: var(--ink-dim); }
+
+.good-txt { color: var(--good); }
+.warn-txt { color: var(--warn); }
+.bad-txt { color: var(--bad); }
+.mute-txt { color: var(--ink-dim); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-dim); }
+.leg-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+.day-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+@media (max-width: 960px) { .day-cards { grid-template-columns: repeat(2, 1fr); } }
+.day-card { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.day-card h4 { margin: 0 0 6px; font-size: 13px; display: flex; justify-content: space-between; }
+
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { padding: 7px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-dim); background: var(--bg-elev); position: sticky; top: 0; z-index: 2; }
+td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-scroll { max-height: 430px; overflow: auto; border: 1px solid var(--line); border-radius: 9px; }
+
+#packLiveBanner {
+  display: none;
+  margin: 12px 20px 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(168,85,247,0.16), rgba(59,130,246,0.14));
+  border: 1px solid var(--purp);
+}
+#tooltip {
+  position: fixed; pointer-events: none; display: none; z-index: 100;
+  background: rgba(11, 16, 32, 0.95); color: #f8fafc; border: 1px solid var(--acc);
+  border-radius: 8px; padding: 8px 11px; font-size: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  max-width: 320px;
+}
+#loadingOverlay {
+  padding: 48px; text-align: center; color: var(--ink-dim); font-size: 15px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="brand-dot"></span>
+    <span>Spread Forensic Analytics</span>
+  </div>
+  <select id="worldSel" style="min-width:340px;max-width:460px"></select>
+  <button id="bRename" class="sm" title="Give this world a custom human-readable name">✏️ Rename</button>
+  <button id="bBackBatch" class="sm purp-btn" style="display:none" title="Return to the full 5-week combined pack view">↑ View Full 5-Week Pack</button>
+  <button id="bReload" class="sm" title="Recompute analytics">↻ Refresh</button>
+  <span id="revealBadge" class="badge info">—</span>
+
+  <span class="sp"></span>
+
+  <button id="bRunPack5" class="purp-btn" title="Run 5 consecutive practice weeks automatically and analyze the combined dataset">🏃 Run 5 Practice Weeks</button>
+  <a href="/" class="btn">← Live Command Center</a>
+  <button id="bTheme" title="Toggle light/dark mode">◐</button>
+</header>
+
+<div id="packLiveBanner"></div>
+<div id="tooltip"></div>
+
+<div id="loadingOverlay">Loading worlds, batches, and computing forensic breakdown…</div>
+
+<main id="appMain" style="display:none">
+  <!-- ACTIVE WORLD / PACK BANNER -->
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:2px 4px">
+    <div>
+      <span id="viewKindBadge" class="badge purp">Single Week</span>
+      <b id="viewTitleTxt" style="font-size:17px;margin-left:8px">—</b>
+      <span id="viewSubTxt" class="mute-txt" style="margin-left:8px;font-size:12.5px"></span>
+    </div>
+    <div id="viewRightMeta" class="mute-txt mono" style="font-size:12px"></div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <section class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-lbl"><span id="kMarginTitle">Net Gross Margin</span><span id="kMarginPct" class="badge good">—</span></div>
+      <div class="kpi-val" id="kMargin">—</div>
+      <div class="kpi-sub" id="kMarginSub">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl"><span>5-Run Leaderboard Pace</span><span id="kPaceBadge" class="badge info">—</span></div>
+      <div class="kpi-val" id="kPace">—</div>
+      <div class="prog-bg"><div class="prog-fg" id="kPaceBar" style="width:0%;background:var(--acc)"></div></div>
+      <div class="kpi-sub" id="kPaceSub" style="margin-top:4px">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl"><span>On-Time Delivery SLA</span><span id="kRankBadge" class="badge good">—</span></div>
+      <div class="kpi-val" id="kOnTime">—</div>
+      <div class="prog-bg"><div class="prog-fg" id="kOnTimeBar" style="width:0%;background:var(--good)"></div></div>
+      <div class="kpi-sub" id="kOnTimeSub" style="margin-top:4px">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl"><span>Order Volume &amp; Profit/Car</span><span class="badge info" id="kLevelBadge">—</span></div>
+      <div class="kpi-val" id="kVolume">—</div>
+      <div class="kpi-sub" id="kVolumeSub">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl"><span>Driver Shortage &amp; Fees</span><span class="badge warn" id="kShortageBadge">—</span></div>
+      <div class="kpi-val" id="kFeeRatio">—</div>
+      <div class="kpi-sub" id="kFeeSub">—</div>
+    </div>
+  </section>
+
+  <!-- MULTI-WEEK / 5-WEEK PACK COMPARISON SECTION (Shown when viewing a multi-week batch) -->
+  <section class="card" id="multiWeekSection" style="display:none;border-color:var(--purp)">
+    <div class="card-hd">
+      <div>
+        <div class="card-title">📦 Multi-Week Pack Breakdown — Week-by-Week Margin, SLA &amp; Shortage Comparison</div>
+        <div class="card-sub">Every week in a 5-run set must stay ≥ 90.0% on-time to rank. Click any week to drill into its individual timeline, or inspect the combined data below.</div>
+      </div>
+      <div class="legend">
+        <span><i class="leg-dot" style="background:#10b981"></i>Ranked Week (≥90% SLA)</span>
+        <span><i class="leg-dot" style="background:#ef4444"></i>Unranked Week (&lt;90% SLA)</span>
+        <span><i class="leg-dot" style="background:#3b82f6"></i>Top-10 Per-Week Cutoff</span>
+      </div>
+    </div>
+    <div class="grid-3-2" style="align-items:center">
+      <div class="tbl-scroll" id="weeksSummaryTable" style="max-height:300px"></div>
+      <div id="weeksBarChart"></div>
+    </div>
+  </section>
+
+  <!-- ROW 1: P&L WATERFALL + CUMULATIVE TIMELINE -->
+  <section class="grid-2">
+    <div class="card">
+      <div class="card-hd">
+        <div>
+          <div class="card-title">P&amp;L Waterfall — Revenue Sources vs Cost Leaks</div>
+          <div class="card-sub">Every euro flowing in from dealers vs paid out to drivers, refunds, failed visits &amp; fines</div>
+        </div>
+      </div>
+      <div id="waterfallChart"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div>
+          <div class="card-title">Intra-Week Trajectory — Cumulative Profit, Revenue, Driver Fees &amp; SLA</div>
+          <div class="card-sub">4-hour resolution from Monday 00:00 to Wednesday 22:00 (hover points for details)</div>
+        </div>
+        <div class="legend">
+          <span><i class="leg-dot" style="background:#10b981"></i>Net Margin</span>
+          <span><i class="leg-dot" style="background:#3b82f6"></i>Revenue</span>
+          <span><i class="leg-dot" style="background:#ef4444"></i>Driver Fees</span>
+          <span><i class="leg-dot" style="background:#f59e0b"></i>On-Time %</span>
+        </div>
+      </div>
+      <div id="timelineChart"></div>
+    </div>
+  </section>
+
+  <!-- ROW 2: DAILY MARKET REGIMES & SURPRISES -->
+  <section class="card">
+    <div class="card-hd">
+      <div>
+        <div class="card-title">Daily Market Regimes &amp; Unannounced Event Detector (Mon–Fri)</div>
+        <div class="card-sub">Tracks daily win-rate, won vs lost quote/list multipliers, profit, and flags Price Wars, Regional Outages, Bulk Orders &amp; Flu drops</div>
+      </div>
+    </div>
+    <div class="day-cards" id="dailyCards"></div>
+  </section>
+
+  <!-- ROW 3: QUOTE ELASTICITY + DELIVERY OPTION & DRIVER FEE EFFICIENCY -->
+  <section class="grid-2">
+    <div class="card">
+      <div class="card-hd">
+        <div>
+          <div class="card-title">Quote Elasticity Curve — Win Rate &amp; Profit by Quote/List Multiplier</div>
+          <div class="card-sub">Shows where quotes convert vs lose against the competitor, and which multiplier bins generate the most net profit</div>
+        </div>
+        <div class="legend">
+          <span><i class="leg-dot" style="background:#3b82f6"></i>Quoted</span>
+          <span><i class="leg-dot" style="background:#10b981"></i>Won</span>
+          <span><i class="leg-dot" style="background:#f59e0b"></i>Win Rate %</span>
+        </div>
+      </div>
+      <div id="quoteCurveChart"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div>
+          <div class="card-title">Delivery Option Mix &amp; Driver Fee Efficiency</div>
+          <div class="card-sub">Margin by delivery speed + how much we paid drivers relative to reference fee &amp; opening step</div>
+        </div>
+      </div>
+      <div id="optionAndFeePanel"></div>
+    </div>
+  </section>
+
+  <!-- ROW 4: GEOGRAPHIC MAP + TOP/BOTTOM CORRIDORS -->
+  <section class="grid-3-2">
+    <div class="card">
+      <div class="card-hd">
+        <div>
+          <div class="card-title">Top Profitable Corridors vs Worst Money-Losing Lanes</div>
+          <div class="card-sub">Identifies golden backhaul hubs vs dead-end shortage traps</div>
+        </div>
+        <div>
+          <button id="bCorrTop" class="pri" onclick="renderCorridors('top')">Top 15 Profitable</button>
+          <button id="bCorrBot" onclick="renderCorridors('bot')">Worst 15 Lanes</button>
+        </div>
+      </div>
+      <div class="tbl-scroll" id="corridorTable"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div>
+          <div class="card-title">Finland Town Margin &amp; Driver Shortage Map</div>
+          <div class="card-sub">Circle size = pickups; Green = net profit, Red = net loss (hover any town for local driver supply)</div>
+        </div>
+      </div>
+      <div id="finlandMap" style="display:flex;justify-content:center"></div>
+    </div>
+  </section>
+
+  <!-- ROW 5: ORDER FORENSICS & NOTE PARSER GROUND-TRUTH SCORECARD -->
+  <section class="card">
+    <div class="card-hd">
+      <div>
+        <div class="card-title">Order-Level Forensics &amp; Multilingual Note Parser Audit</div>
+        <div class="card-sub">Inspect every cent on your worst leaks, late/failed orders, and best wins across single or 5-week datasets</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="ordSearch" placeholder="Filter by town, week, ID, note…" size="24" oninput="renderOrdersTable(ORD_MODE)">
+        <button id="bOrdWorst" class="pri" onclick="renderOrdersTable('worst')">Worst 50 Leaks</button>
+        <button id="bOrdLate" onclick="renderOrdersTable('late')">Late &amp; Failed Visits</button>
+        <button id="bOrdBest" onclick="renderOrdersTable('best')">Best 35 Wins</button>
+      </div>
+    </div>
+    <div id="noteAuditStrip"></div>
+    <div class="tbl-scroll" id="ordersTable"></div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const eur = v => (v < 0 ? '−€' : '€') + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const eur0 = v => (v < 0 ? '−€' : '€') + Math.round(Math.abs(v)).toLocaleString('en-US');
+
+let DATA = null;
+let WORLDS = [];
+let BATCHES = [];
+let ORD_MODE = 'worst';
+let packPollTimer = null;
+
+function showTip(ev, html) {
+  const t = $('#tooltip');
+  t.innerHTML = html;
+  t.style.display = 'block';
+  t.style.left = Math.min(window.innerWidth - 325, ev.clientX + 14) + 'px';
+  t.style.top = Math.min(window.innerHeight - 150, ev.clientY + 14) + 'px';
+}
+function hideTip() { $('#tooltip').style.display = 'none'; }
+
+async function jget(url) {
+  const r = await fetch(url);
+  const txt = await r.text();
+  const d = JSON.parse(txt);
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+}
+
+async function jpost(url, body) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body || {}),
+  });
+  const txt = await r.text();
+  const d = JSON.parse(txt);
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+}
+
+async function refreshSelectorMeta(selectedVal) {
+  const meta = await jget('/bot/worlds-meta');
+  WORLDS = meta.worlds || [];
+  BATCHES = meta.batches || [];
+
+  const sel = $('#worldSel');
+  let html = '';
+
+  if (BATCHES.length) {
+    html += `<optgroup label="📦 5-Week Sets & Multi-Week Batches">`;
+    for (const b of BATCHES) {
+      const mStr = b.totalMarginCents ? ` · ${eur0(b.totalMarginCents / 100)}` : '';
+      html += `<option value="batch:${esc(b.batchId)}">📦 ${esc(b.batchName)} (${b.worldIds.length} wks${mStr})</option>`;
+    }
+    html += `</optgroup>`;
+  }
+
+  html += `<optgroup label="🌍 Individual Worlds (Human-Readable Names)">`;
+  for (const w of [...WORLDS].reverse()) {
+    const sc = w.score;
+    const scTxt = sc ? ` · ${eur0(sc.marginCents / 100)} (${(sc.onTimeShare * 100).toFixed(1)}% ${sc.ranked ? '✓' : '✕'})` : (w.ended ? ' · Ended' : ' · Live');
+    html += `<option value="${esc(w.worldId)}">${esc(w.name)}${scTxt} [${esc(w.worldId.slice(0, 7))}]</option>`;
+  }
+  html += `</optgroup>`;
+
+  sel.innerHTML = html;
+  if (selectedVal && [...sel.options].some(o => o.value === selectedVal)) {
+    sel.value = selectedVal;
+  }
+}
+
+async function init() {
+  if (localStorage.getItem('spread_theme') === 'light') document.body.classList.add('light');
+  $('#bTheme').onclick = () => {
+    document.body.classList.toggle('light');
+    localStorage.setItem('spread_theme', document.body.classList.contains('light') ? 'light' : 'dark');
+  };
+
+  await refreshSelectorMeta();
+  const params = new URLSearchParams(location.search);
+  let batchId = params.get('batchId');
+  let worldIds = params.get('worldIds');
+  let target = params.get('worldId');
+
+  const sel = $('#worldSel');
+  if (batchId && [...sel.options].some(o => o.value === 'batch:' + batchId)) {
+    sel.value = 'batch:' + batchId;
+    await loadTarget(sel.value, false);
+  } else if (worldIds) {
+    await loadMultiIds(worldIds, params.get('title') || 'Multi-Week Set', false);
+  } else if (target && WORLDS.some(w => w.worldId === target)) {
+    sel.value = target;
+    await loadTarget(target, false);
+  } else if (BATCHES.length) {
+    // Default to the newest real 5-week batch if present, else newest ended L8 world
+    const realBatch = BATCHES.find(b => !b.batchId.startsWith('virtual:'));
+    if (realBatch) {
+      sel.value = 'batch:' + realBatch.batchId;
+      await loadTarget(sel.value, false);
+    } else {
+      const endedL8 = WORLDS.filter(w => w.ended && w.level === 8);
+      const pick = (endedL8[endedL8.length - 1] || WORLDS[WORLDS.length - 1] || {}).worldId;
+      if (pick) {
+        sel.value = pick;
+        await loadTarget(pick, false);
+      }
+    }
+  } else if (WORLDS.length) {
+    const pick = WORLDS[WORLDS.length - 1].worldId;
+    sel.value = pick;
+    await loadTarget(pick, false);
+  } else {
+    $('#loadingOverlay').textContent = 'No worlds found yet — click "🏃 Run 5 Practice Weeks" above to generate a 5-week dataset.';
+  }
+
+  sel.onchange = () => {
+    const v = sel.value;
+    if (v.startsWith('batch:')) {
+      history.replaceState(null, '', '/analytics?batchId=' + encodeURIComponent(v.slice(6)));
+    } else {
+      history.replaceState(null, '', '/analytics?worldId=' + encodeURIComponent(v));
+    }
+    loadTarget(v, false);
+  };
+
+  $('#bReload').onclick = () => loadTarget(sel.value, true);
+
+  $('#bRename').onclick = async () => {
+    if (!DATA || DATA.isMultiWeek) return alert('Select an individual world to rename.');
+    const curName = DATA.world.name || DATA.world.worldId;
+    const next = prompt('Enter a new human-readable name for this world:', curName);
+    if (!next || !next.trim()) return;
+    await jpost('/bot/rename', { worldId: DATA.world.worldId, name: next.trim() });
+    await refreshSelectorMeta(DATA.world.worldId);
+    await loadTarget(DATA.world.worldId, true);
+  };
+
+  $('#bRunPack5').onclick = async () => {
+    const customName = prompt('Optional human-readable name for this 5-Week Level 8 Practice Pack (leave blank for auto-codename like "Aurora" or "Pohjola"):', '');
+    if (customName === null) return;
+    try {
+      const st = await jpost('/bot/start-pack', { level: 8, count: 5, name: customName.trim() || undefined });
+      startPackMonitor(st.pack && st.pack.batchId);
+    } catch (e) {
+      alert('Failed to start 5-week pack: ' + e.message);
+    }
+  };
+
+  // Check if a 5-week pack is already running on the backend
+  try {
+    const st = await jget('/bot/status');
+    if (st.running && st.mode === 'pack' && st.pack) {
+      startPackMonitor(st.pack.batchId);
+    }
+  } catch (_) {}
+}
+
+function startPackMonitor(batchId) {
+  if (packPollTimer) clearInterval(packPollTimer);
+  const banner = $('#packLiveBanner');
+  banner.style.display = 'block';
+
+  const poll = async () => {
+    try {
+      const st = await jget('/bot/status');
+      const pk = st.pack;
+      if (!pk) return;
+      const done = pk.completedWeeks || [];
+      const sumM = done.reduce((acc, w) => acc + w.marginEuros, 0);
+      const pills = done.map(w =>
+        `<span class="badge ${w.ranked ? 'good' : 'bad'}">W${w.index}: ${eur0(w.marginEuros)} (${w.onTimePct}% ${w.ranked ? '✓' : '✕'})</span>`
+      ).join(' ');
+
+      if (st.running && st.mode === 'pack') {
+        banner.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+            <div>
+              <span class="badge purp">● RUNNING 5-WEEK PACK</span>
+              <b style="margin-left:8px">${esc(pk.batchName)}</b>
+              <span class="mute-txt" style="margin-left:8px">Currently simulating <b>Week ${pk.currentWeek}/${pk.totalWeeks}</b> (${esc(pk.currentWorldName || '')} · step ${st.steps})…</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              ${pills}
+              ${done.length > 0 ? `<button class="sm pri" onclick="selectBatch('${esc(pk.batchId)}')">📊 Analyze ${done.length} Finished Week(s) Now</button>` : ''}
+            </div>
+          </div>`;
+      } else {
+        clearInterval(packPollTimer);
+        packPollTimer = null;
+        banner.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+            <div>
+              <span class="badge good">✓ 5-WEEK PACK COMPLETE</span>
+              <b style="margin-left:8px">${esc(pk.batchName)}</b>
+              <span class="mute-txt" style="margin-left:8px">5-Week Total: <b>${eur(sumM)}</b></span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              ${pills}
+              <button class="sm pri" onclick="selectBatch('${esc(pk.batchId)}')">📊 View Full 5-Week Combined Report</button>
+            </div>
+          </div>`;
+        await refreshSelectorMeta('batch:' + pk.batchId);
+        await selectBatch(pk.batchId);
+      }
+    } catch (_) {}
+  };
+  poll();
+  packPollTimer = setInterval(poll, 1200);
+}
+
+async function selectBatch(batchId) {
+  await refreshSelectorMeta('batch:' + batchId);
+  $('#worldSel').value = 'batch:' + batchId;
+  history.replaceState(null, '', '/analytics?batchId=' + encodeURIComponent(batchId));
+  await loadTarget('batch:' + batchId, true);
+}
+
+async function selectSingleWorld(wid) {
+  await refreshSelectorMeta(wid);
+  $('#worldSel').value = wid;
+  history.replaceState(null, '', '/analytics?worldId=' + encodeURIComponent(wid));
+  await loadTarget(wid, false);
+}
+
+async function loadMultiIds(worldIdsCsv, title, force) {
+  $('#loadingOverlay').style.display = 'block';
+  $('#loadingOverlay').textContent = `Aggregating multi-week forensic analytics across ${worldIdsCsv.split(',').length} weeks in parallel…`;
+  $('#appMain').style.display = 'none';
+  try {
+    DATA = await jget(`/bot/analyze?worldIds=${encodeURIComponent(worldIdsCsv)}&title=${encodeURIComponent(title || '')}${force ? '&refresh=1' : ''}`);
+    $('#loadingOverlay').style.display = 'none';
+    $('#appMain').style.display = 'flex';
+    renderAll();
+  } catch (e) {
+    $('#loadingOverlay').textContent = 'Multi-week analysis failed: ' + e.message;
+  }
+}
+
+async function loadTarget(val, force) {
+  if (!val) return;
+  $('#loadingOverlay').style.display = 'block';
+  $('#appMain').style.display = 'none';
+  try {
+    if (val.startsWith('batch:')) {
+      const bid = val.slice(6);
+      $('#loadingOverlay').textContent = `Aggregating 5-week forensic analytics for ${bid} (parallel fetch & reveal audit)…`;
+      DATA = await jget(`/bot/analyze?batchId=${encodeURIComponent(bid)}${force ? '&refresh=1' : ''}`);
+    } else {
+      $('#loadingOverlay').textContent = `Analyzing world ${val} (events, ledger, corridors & post-game reveal)…`;
+      DATA = await jget(`/bot/analyze?worldId=${encodeURIComponent(val)}${force ? '&refresh=1' : ''}`);
+    }
+    await refreshSelectorMeta(val);
+    $('#loadingOverlay').style.display = 'none';
+    $('#appMain').style.display = 'flex';
+    renderAll();
+  } catch (e) {
+    $('#loadingOverlay').textContent = 'Analysis failed: ' + e.message;
+  }
+}
+
+function renderAll() {
+  const { world, score, benchmark, isMultiWeek, weeksCount, rankedWeeksCount } = DATA;
+  const revE = score.revenueCents / 100;
+  const marE = score.marginCents / 100;
+  const costE = revE - marE;
+
+  // Header & Banner metadata
+  $('#bRename').style.display = isMultiWeek ? 'none' : 'inline-flex';
+  const backBtn = $('#bBackBatch');
+  if (!isMultiWeek && world.batchId) {
+    backBtn.style.display = 'inline-flex';
+    backBtn.textContent = `↑ Back to ${world.batchName || '5-Week Set'}`;
+    backBtn.onclick = () => selectBatch(world.batchId);
+  } else {
+    backBtn.style.display = 'none';
+  }
+
+  $('#viewKindBadge').textContent = isMultiWeek ? `📦 ${weeksCount}-Week Combined Dataset` : (world.boardRun ? `🎖️ Ranking Run #${world.boardRun}` : '🌍 Single Practice Week');
+  $('#viewKindBadge').className = 'badge ' + (isMultiWeek ? 'purp' : (world.boardRun ? 'warn' : 'info'));
+  $('#viewTitleTxt').textContent = world.name || world.worldId;
+  $('#viewSubTxt').textContent = isMultiWeek
+    ? `Aggregated across ${weeksCount} simulated weeks (${score.wonOrders.toLocaleString()} won cars · ${world.totalRequests.toLocaleString()} requests)`
+    : (world.seed ? `Seed: ${world.seed} · ID: ${world.worldId}` : `World ID: ${world.worldId}`);
+  $('#viewRightMeta').textContent = isMultiWeek
+    ? `Mean Margin/Week: ${eur(marE / weeksCount)}`
+    : (world.batchName ? `Part of: ${world.batchName}` : '');
+
+  $('#revealBadge').textContent = world.hasReveal
+    ? (isMultiWeek ? `✓ Oracle Reveal Loaded (${weeksCount} Wks)` : '✓ Full Oracle Reveal Loaded')
+    : (world.ended ? 'Events-Only (Ranking Run)' : 'Live In-Progress World');
+  $('#revealBadge').className = 'badge ' + (world.hasReveal ? 'good' : 'warn');
+
+  $('#kMarginTitle').textContent = isMultiWeek ? `${weeksCount}-Week Total Margin` : 'Net Gross Margin';
+  $('#kMargin').textContent = eur(marE);
+  $('#kMargin').className = 'kpi-val ' + (marE >= 0 ? 'good-txt' : 'bad-txt');
+  $('#kMarginPct').textContent = revE > 0 ? `${(score.marginShare * 100).toFixed(1)}% margin` : '0%';
+  $('#kMarginPct').className = 'badge ' + (marE >= 0 ? 'good' : 'bad');
+  $('#kMarginSub').textContent = isMultiWeek
+    ? `Avg ${eur0(marE / weeksCount)}/wk · Rev ${eur0(revE)} − Costs ${eur0(costE)}`
+    : `Rev ${eur0(revE)} − Total Costs ${eur0(costE)}`;
+
+  const pace5 = isMultiWeek ? (marE * (5 / Math.max(1, weeksCount))) : (marE * 5);
+  $('#kPace').textContent = eur0(pace5);
+  const t10 = benchmark.top10PerRun ? benchmark.top10PerRun * 5 : 73353;
+  const t1 = benchmark.top1PerRun ? benchmark.top1PerRun * 5 : 94445;
+  const pctT10 = Math.max(0, Math.min(100, (pace5 / Math.max(1, t10)) * 100));
+  $('#kPaceBar').style.width = pctT10.toFixed(1) + '%';
+  $('#kPaceBar').style.background = pace5 >= t10 ? 'var(--good)' : 'var(--acc)';
+  $('#kPaceBadge').textContent = pace5 >= t10 ? '🏆 Top-10 Pace!' : `${pctT10.toFixed(0)}% of #10`;
+  $('#kPaceBadge').className = 'badge ' + (pace5 >= t10 ? 'good' : 'info');
+  $('#kPaceSub').textContent = `L${world.level} #10 ≈ ${eur0(t10)} (${eur0(t10/5)}/wk) · #1 ≈ ${eur0(t1)}`;
+
+  const ot = score.onTimeShare * 100;
+  $('#kOnTime').textContent = `${ot.toFixed(1)}%`;
+  $('#kOnTime').className = 'kpi-val ' + (ot >= 93 && score.ranked ? 'good-txt' : score.ranked ? 'warn-txt' : 'bad-txt');
+  $('#kOnTimeBar').style.width = `${Math.min(100, ot)}%`;
+  $('#kOnTimeBar').style.background = ot >= 93 && score.ranked ? 'var(--good)' : score.ranked ? 'var(--warn)' : 'var(--bad)';
+  if (isMultiWeek) {
+    $('#kRankBadge').textContent = score.ranked ? `✓ ${rankedWeeksCount}/${weeksCount} RANKED` : `✕ ${rankedWeeksCount}/${weeksCount} RANKED`;
+    $('#kRankBadge').className = 'badge ' + (score.ranked ? 'good' : 'bad');
+    $('#kOnTimeSub').textContent = score.ranked
+      ? `All ${weeksCount} weeks ≥ 90.0% on-time · ${(score.undeliveredShare*100).toFixed(1)}% undelivered`
+      : `${weeksCount - rankedWeeksCount} of ${weeksCount} week(s) dipped below 90.0% minimum!`;
+  } else {
+    $('#kRankBadge').textContent = score.ranked ? '✓ RANKED' : '✕ UNRANKED (<90%)';
+    $('#kRankBadge').className = 'badge ' + (score.ranked ? 'good' : 'bad');
+    const cushion = Math.floor((score.onTimeShare - 0.90) * score.wonOrders);
+    $('#kOnTimeSub').textContent = score.ranked
+      ? `+${cushion} order cushion above 90% cliff · ${(score.undeliveredShare*100).toFixed(1)}% undelivered`
+      : `Fell below 90.0% minimum delivery threshold`;
+  }
+
+  const perCar = score.wonOrders ? (marE / score.wonOrders) : 0;
+  $('#kVolume').textContent = `${score.wonOrders.toLocaleString()} won · ${eur(perCar)}/ord`;
+  $('#kLevelBadge').textContent = `Level ${world.level}`;
+  const wrAll = world.totalRequests ? (score.wonOrders / world.totalRequests * 100).toFixed(1) : '0';
+  $('#kVolumeSub').textContent = `Out of ${world.totalRequests.toLocaleString()} dealer requests (${wrAll}% capture)`;
+
+  const de = DATA.driverEfficiency;
+  $('#kFeeRatio').textContent = `${de.avgFeeToRef.toFixed(2)}× refFee`;
+  $('#kShortageBadge').textContent = `${world.totalDrivers} avg drivers (${world.shortagePctOfNormal}% norm)`;
+  $('#kFeeSub').textContent = `Median ${de.medianFeeToRef.toFixed(2)}× ref · ${de.chainedDoneGigs} multi-car gigs (${de.chainedCarsMoved} cars)`;
+
+  renderMultiWeekSection();
+  renderWaterfall();
+  renderTimeline();
+  renderDailyCards();
+  renderQuoteCurve();
+  renderOptionAndFee();
+  renderCorridors('top');
+  renderFinlandMap();
+  renderNoteAudit();
+  renderOrdersTable(ORD_MODE);
+}
+
+function renderMultiWeekSection() {
+  const sec = $('#multiWeekSection');
+  const wks = DATA.weeksSummary || [];
+  if (!DATA.isMultiWeek || wks.length <= 1) {
+    sec.style.display = 'none';
+    return;
+  }
+  sec.style.display = 'flex';
+
+  const t10PerRun = DATA.benchmark.top10PerRun || 14670;
+
+  // 1. Table of weeks
+  $('#weeksSummaryTable').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Week Name</th>
+          <th class="r">Drivers</th>
+          <th class="r">Won / Reqs</th>
+          <th class="r">Revenue</th>
+          <th class="r">Driver Fees</th>
+          <th class="r">Penalties</th>
+          <th class="r">Net Margin</th>
+          <th class="r">On-Time SLA</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${wks.map((w, i) => `
+          <tr>
+            <td class="mono mute-txt">W${i + 1}</td>
+            <td><b>${esc(w.name)}</b> <span class="mute-txt mono" style="font-size:11px">[${esc(w.worldId.slice(0, 7))}]</span></td>
+            <td class="r mono">${w.totalDrivers} <span class="mute-txt">(${w.shortagePctOfNormal}%)</span></td>
+            <td class="r mono">${w.wonOrders} / ${w.requests}</td>
+            <td class="r mono">${eur0(w.revenueEuros)}</td>
+            <td class="r mono">−${eur0(w.driverFeeEuros)}</td>
+            <td class="r mono ${w.penaltiesEuros > 0 ? 'bad-txt' : 'mute-txt'}">${w.penaltiesEuros > 0 ? '−' + eur0(w.penaltiesEuros) : '—'}</td>
+            <td class="r mono ${w.marginEuros >= 0 ? 'good-txt' : 'bad-txt'}"><b>${eur(w.marginEuros)}</b></td>
+            <td class="r mono ${w.onTimePct >= 92 ? 'good-txt' : w.onTimePct >= 90 ? 'warn-txt' : 'bad-txt'}"><b>${w.onTimePct.toFixed(1)}%</b></td>
+            <td><span class="badge ${w.ranked ? 'good' : 'bad'}">${w.ranked ? '✓ RANKED' : '✕ <90%'}</span></td>
+            <td class="r"><button class="sm" onclick="selectSingleWorld('${esc(w.worldId)}')">Inspect →</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+
+  // 2. Bar chart comparing each week's margin & SLA
+  const W = 520, H = 225, padL = 52, padR = 24, padT = 22, padB = 36;
+  const pw = W - padL - padR, ph = H - padT - padB;
+  const maxM = Math.max(t10PerRun * 1.15, ...wks.map(w => Math.max(0, w.marginEuros)), 5000);
+  const bw = pw / wks.length;
+  const yOf = v => padT + ph - (Math.max(0, v) / maxM) * ph;
+  const yT10 = yOf(t10PerRun);
+
+  let bars = '';
+  wks.forEach((w, i) => {
+    const x = padL + i * bw;
+    const h = Math.max(3, (Math.max(0, w.marginEuros) / maxM) * ph);
+    const col = w.ranked ? '#10b981' : '#ef4444';
+    const tip = `<b>${esc(w.name)}</b><br>Margin: <b>${eur(w.marginEuros)}</b><br>On-Time: <b>${w.onTimePct}%</b> (${w.ranked ? 'RANKED' : 'UNRANKED'})<br>Orders: ${w.wonOrders} · Failed Visits: ${w.failedVisits}`;
+    bars += `
+      <g style="cursor:pointer" onclick="selectSingleWorld('${esc(w.worldId)}')" onmousemove="showTip(event, ${esc(JSON.stringify(tip))})" onmouseout="hideTip()">
+        <rect x="${x + 12}" y="${padT + ph - h}" width="${Math.max(16, bw - 24)}" height="${h}" rx="5" fill="${col}" opacity="0.88"/>
+        <text x="${x + bw/2}" y="${padT + ph - h - 6}" fill="var(--ink)" font-size="11" font-weight="700" text-anchor="middle">${eur0(w.marginEuros)}</text>
+        <text x="${x + bw/2}" y="${H - 18}" fill="var(--ink)" font-size="11" font-weight="600" text-anchor="middle">W${i + 1}</text>
+        <text x="${x + bw/2}" y="${H - 5}" fill="${w.ranked ? 'var(--good)' : 'var(--bad)'}" font-size="10" font-weight="700" text-anchor="middle">${w.onTimePct}%</text>
+      </g>`;
+  });
+
+  $('#weeksBarChart').innerHTML = `
+    <svg class="chart" viewBox="0 0 ${W} ${H}">
+      <line x1="${padL}" y1="${padT + ph}" x2="${W - padR}" y2="${padT + ph}" stroke="var(--line)"/>
+      <line x1="${padL}" y1="${yT10}" x2="${W - padR}" y2="${yT10}" stroke="#3b82f6" stroke-width="1.6" stroke-dasharray="5,4"/>
+      <text x="${padL - 6}" y="${yT10 + 4}" fill="#3b82f6" font-size="10" text-anchor="end">#10 (${eur0(t10PerRun)})</text>
+      ${bars}
+    </svg>`;
+}
+
+function renderWaterfall() {
+  const wf = DATA.waterfall;
+  const maxAbs = Math.max(1, ...wf.map(x => Math.abs(x.euros)));
+  let running = 0;
+
+  const W = 680, rowH = 34, H = wf.length * rowH + 20, barArea = 300, leftLbl = 200;
+  let rowsSvg = '';
+
+  wf.forEach((item, i) => {
+    const y = 10 + i * rowH;
+    let startE = 0, endE = 0, color = '#10b981';
+    if (item.type === 'pos') {
+      startE = 0; endE = item.euros; running = item.euros; color = '#3b82f6';
+    } else if (item.type === 'neg') {
+      startE = running; endE = running + item.euros; running = endE;
+      color = item.euros === 0 ? '#475569' : '#ef4444';
+    } else {
+      startE = 0; endE = item.euros;
+      color = item.euros >= 0 ? '#10b981' : '#ef4444';
+    }
+    const scale = v => leftLbl + Math.max(0, (v / maxAbs) * barArea);
+    const x1 = scale(Math.min(startE, endE));
+    const x2 = scale(Math.max(startE, endE));
+    const bw = Math.max(item.euros !== 0 ? 3 : 1, x2 - x1);
+    const valTxt = (item.euros > 0 && item.type !== 'total' ? '+' : '') + eur(item.euros);
+
+    rowsSvg += `
+      <g>
+        <line x1="0" y1="${y + rowH - 2}" x2="${W}" y2="${y + rowH - 2}" stroke="var(--line)" stroke-dasharray="2,3" opacity="0.5"/>
+        <text x="4" y="${y + 20}" fill="var(--ink)" font-size="12.5" font-weight="${item.type==='total'?'700':'500'}">${esc(item.label)}</text>
+        <text x="${leftLbl - 10}" y="${y + 20}" fill="var(--ink-dim)" font-size="11.5" text-anchor="end">${item.count.toLocaleString()}×</text>
+        <rect x="${x1}" y="${y + 7}" width="${bw}" height="18" rx="4" fill="${color}" opacity="${item.euros===0?0.25:0.9}"/>
+        <text x="${W - 4}" y="${y + 20}" fill="${item.euros < 0 ? 'var(--bad)' : (item.type==='total'?'var(--good)':'var(--ink)')}" font-size="12.5" font-family="var(--mono)" font-weight="${item.type==='total'?'700':'600'}" text-anchor="end">${valTxt}</text>
+      </g>`;
+  });
+
+  $('#waterfallChart').innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}">${rowsSvg}</svg>`;
+}
+
+function renderTimeline() {
+  const tl = DATA.timeline;
+  if (!tl.length) { $('#timelineChart').innerHTML = '<div class="mute-txt">No timeline events yet.</div>'; return; }
+
+  const W = 680, H = 295, padL = 64, padR = 46, padT = 16, padB = 34;
+  const pw = W - padL - padR, ph = H - padT - padB;
+
+  const vals = tl.flatMap(p => [p.cumMarginEuros, p.cumRevenueEuros, p.cumDriverFeeEuros, 0]);
+  const minY = Math.min(0, ...vals), maxY = Math.max(100, ...vals);
+  const xOf = i => padL + (i / Math.max(1, tl.length - 1)) * pw;
+  const yOf = v => padT + ph - ((v - minY) / Math.max(1, maxY - minY)) * ph;
+  const yPct = pct => padT + ph - (Math.max(50, Math.min(100, pct)) - 50) / 50 * ph;
+
+  const mkPath = fn => tl.map((p, i) => `${i===0?'M':'L'}${xOf(i).toFixed(1)},${fn(p).toFixed(1)}`).join(' ');
+
+  let grid = '';
+  for (let k = 0; k <= 4; k++) {
+    const v = minY + (maxY - minY) * (k / 4);
+    const y = yOf(v);
+    grid += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--line)" stroke-dasharray="3,3"/>`;
+    grid += `<text x="${padL-6}" y="${y+4}" fill="var(--ink-dim)" font-size="10.5" text-anchor="end">${eur0(v)}</text>`;
+  }
+  const y0 = yOf(0), y90 = yPct(90);
+  grid += `<line x1="${padL}" y1="${y0}" x2="${W-padR}" y2="${y0}" stroke="var(--ink-dim)" stroke-width="1"/>`;
+  grid += `<line x1="${padL}" y1="${y90}" x2="${W-padR}" y2="${y90}" stroke="var(--warn)" stroke-dasharray="5,4" opacity="0.65"/>`;
+  grid += `<text x="${W-padR+4}" y="${y90+4}" fill="var(--warn)" font-size="10">90% SLA</text>`;
+  grid += `<text x="${W-padR+4}" y="${yPct(100)+4}" fill="var(--ink-dim)" font-size="10">100%</text>`;
+
+  let xlbls = '';
+  const step = Math.max(1, Math.floor(tl.length / 6));
+  tl.forEach((p, i) => {
+    if (i % step === 0 || i === tl.length - 1) {
+      xlbls += `<text x="${xOf(i)}" y="${H-8}" fill="var(--ink-dim)" font-size="10.5" text-anchor="middle">${esc(p.label.split(' ')[0])}</text>`;
+    }
+  });
+
+  let hoverDots = '';
+  tl.forEach((p, i) => {
+    const tip = `<b>${esc(p.label)}</b><br>Net Margin: <b>${eur(p.cumMarginEuros)}</b><br>Revenue: ${eur(p.cumRevenueEuros)}<br>Driver Fees: −${eur(p.cumDriverFeeEuros)}<br>Penalties: −${eur(p.cumPenaltiesEuros)}<br>On-Time SLA: <b>${p.onTimePct}%</b>`;
+    hoverDots += `<circle cx="${xOf(i).toFixed(1)}" cy="${yOf(p.cumMarginEuros).toFixed(1)}" r="5" fill="transparent" style="cursor:crosshair" onmousemove="showTip(event, ${esc(JSON.stringify(tip))})" onmouseout="hideTip()"/>`;
+  });
+
+  $('#timelineChart').innerHTML = `
+    <svg class="chart" viewBox="0 0 ${W} ${H}">
+      ${grid}
+      <path d="${mkPath(p => yOf(p.cumRevenueEuros))}" fill="none" stroke="#3b82f6" stroke-width="2"/>
+      <path d="${mkPath(p => yOf(p.cumDriverFeeEuros))}" fill="none" stroke="#ef4444" stroke-width="2"/>
+      <path d="${mkPath(p => yPct(p.onTimePct))}" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4,2"/>
+      <path d="${mkPath(p => yOf(p.cumMarginEuros))}" fill="none" stroke="#10b981" stroke-width="3"/>
+      ${xlbls}
+      ${hoverDots}
+    </svg>`;
+}
+
+function renderDailyCards() {
+  $('#dailyCards').innerHTML = DATA.dailyMarket.map(d => {
+    const badges = d.badges.map(b => `<div class="badge warn" style="margin-top:4px;white-space:normal">${esc(b)}</div>`).join('');
+    return `
+      <div class="day-card">
+        <h4>
+          <span>${esc(d.name)}</span>
+          <span class="${d.marginEuros >= 0 ? 'good-txt' : 'bad-txt'} mono">${eur0(d.marginEuros)}</span>
+        </h4>
+        <div style="font-size:12px;display:grid;grid-template-columns:1fr auto;gap:3px">
+          <span class="mute-txt">Requests / Declined:</span><span class="mono">${d.requests.toLocaleString()} / ${d.declined.toLocaleString()}</span>
+          <span class="mute-txt">Won Orders (Win %):</span><span class="mono"><b>${d.won.toLocaleString()}</b> (${d.winRatePct}%)</span>
+          <span class="mute-txt">Avg Won Quote/List:</span><span class="mono good-txt">${d.avgWinMult ? d.avgWinMult.toFixed(2)+'×' : '—'}</span>
+          <span class="mute-txt">Avg Lost Quote/List:</span><span class="mono mute-txt">${d.avgLossMult ? d.avgLossMult.toFixed(2)+'×' : '—'}</span>
+          <span class="mute-txt">Driver Drops:</span><span class="mono">${d.drops}</span>
+        </div>
+        ${badges ? `<div style="margin-top:6px">${badges}</div>` : `<div class="mute-txt" style="font-size:11px;margin-top:6px">Normal trading regime</div>`}
+      </div>`;
+  }).join('');
+}
+
+function renderQuoteCurve() {
+  const qc = DATA.quoteCurve.filter(b => b.quoted > 0 || (b.mult >= 1.0 && b.mult <= 2.0));
+  if (!qc.some(b => b.quoted > 0)) {
+    $('#quoteCurveChart').innerHTML = '<div class="mute-txt" style="padding:20px">Quote curve requires post-game Reveal (available on Practice worlds &amp; 5-Week Practice Packs once ended).</div>';
+    return;
+  }
+  const W = 660, H = 250, padL = 48, padR = 42, padT = 16, padB = 34;
+  const pw = W - padL - padR, ph = H - padT - padB;
+  const maxQ = Math.max(5, ...qc.map(b => b.quoted));
+  const bw = pw / qc.length;
+
+  let bars = '', linePts = [];
+  qc.forEach((b, i) => {
+    const x = padL + i * bw;
+    const hQ = (b.quoted / maxQ) * ph;
+    const hW = (b.won / maxQ) * ph;
+    const yWr = padT + ph - (b.winRatePct / 100) * ph;
+    if (b.quoted > 0) linePts.push(`${(x + bw/2).toFixed(1)},${yWr.toFixed(1)}`);
+
+    const tip = `<b>Quote ${b.multLabel} List Price</b><br>Quoted: ${b.quoted.toLocaleString()} · Won: <b>${b.won.toLocaleString()}</b> (${b.winRatePct}%)<br>Total Profit: <b>${eur(b.totalMarginEuros)}</b><br>Avg Profit/Win: ${eur(b.avgMarginEuros)}`;
+    bars += `
+      <g onmousemove="showTip(event, ${esc(JSON.stringify(tip))})" onmouseout="hideTip()" style="cursor:pointer">
+        <rect x="${x + 4}" y="${padT + ph - hQ}" width="${bw - 8}" height="${hQ}" rx="3" fill="#3b82f6" opacity="0.32"/>
+        <rect x="${x + 4}" y="${padT + ph - hW}" width="${bw - 8}" height="${hW}" rx="3" fill="#10b981" opacity="0.9"/>
+        <text x="${x + bw/2}" y="${H - 10}" fill="var(--ink-dim)" font-size="10.5" text-anchor="middle">${b.multLabel}</text>
+      </g>`;
+  });
+
+  $('#quoteCurveChart').innerHTML = `
+    <svg class="chart" viewBox="0 0 ${W} ${H}">
+      <line x1="${padL}" y1="${padT+ph}" x2="${W-padR}" y2="${padT+ph}" stroke="var(--line)"/>
+      <text x="${padL-6}" y="${padT+10}" fill="var(--ink-dim)" font-size="10.5" text-anchor="end">${maxQ.toLocaleString()}</text>
+      <text x="${W-padR+5}" y="${padT+10}" fill="#f59e0b" font-size="10.5">100%</text>
+      <text x="${W-padR+5}" y="${padT+ph/2}" fill="#f59e0b" font-size="10.5">50%</text>
+      ${bars}
+      ${linePts.length > 1 ? `<polyline points="${linePts.join(' ')}" fill="none" stroke="#f59e0b" stroke-width="2.4"/>` : ''}
+    </svg>`;
+}
+
+function renderOptionAndFee() {
+  const opts = DATA.optionBreakdown;
+  const de = DATA.driverEfficiency;
+  const totBooked = Math.max(1, de.bookedBelowOpen + de.bookedAtOpen + de.bookedSteppedUp);
+  const maxHist = Math.max(1, ...de.feeToRefHistogram.map(h => h.count));
+
+  const optRows = opts.map(o => `
+    <tr>
+      <td><b>${esc(o.option)}</b></td>
+      <td class="r">${o.won.toLocaleString()}</td>
+      <td class="r ${o.onTimePct >= 92 ? 'good-txt' : 'warn-txt'}">${o.onTimePct}%</td>
+      <td class="r mono">${o.avgPriceToList.toFixed(2)}×</td>
+      <td class="r mono">${o.avgFeeToRef.toFixed(2)}×</td>
+      <td class="r mono ${o.avgMarginEuros >= 0 ? 'good-txt' : 'bad-txt'}"><b>${eur(o.avgMarginEuros)}</b></td>
+      <td class="r mono ${o.marginEuros >= 0 ? 'good-txt' : 'bad-txt'}"><b>${eur0(o.marginEuros)}</b></td>
+    </tr>`).join('');
+
+  const histBars = de.feeToRefHistogram.map(h => `
+    <div style="display:grid;grid-template-columns:82px 1fr 52px;gap:8px;align-items:center;font-size:12px;margin:3px 0">
+      <span class="mono mute-txt">${esc(h.bucket)}</span>
+      <div class="prog-bg" style="margin:0"><div class="prog-fg" style="width:${(h.count/maxHist*100).toFixed(1)}%;background:var(--acc)"></div></div>
+      <span class="mono" style="text-align:right">${h.count.toLocaleString()}</span>
+    </div>`).join('');
+
+  $('#optionAndFeePanel').innerHTML = `
+    <table>
+      <thead><tr><th>Option</th><th class="r">Won</th><th class="r">On-Time</th><th class="r">Price/List</th><th class="r">Fee/Ref</th><th class="r">Avg/Ord</th><th class="r">Total Profit</th></tr></thead>
+      <tbody>${optRows}</tbody>
+    </table>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">
+      <div>
+        <div style="font-weight:700;font-size:12.5px;margin-bottom:5px">Driver Fee / Reference Fee Distribution</div>
+        ${histBars}
+      </div>
+      <div style="background:var(--bg-elev);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:12px">
+        <div style="font-weight:700;margin-bottom:6px">Booking Step &amp; Operations Health</div>
+        <div>Below Opening (Direct Offer): <b class="good-txt">${de.bookedBelowOpen.toLocaleString()}</b> (${(de.bookedBelowOpen/totBooked*100).toFixed(0)}%)</div>
+        <div>Booked at Opening Step 0: <b class="good-txt">${de.bookedAtOpen.toLocaleString()}</b> (${(de.bookedAtOpen/totBooked*100).toFixed(0)}%)</div>
+        <div>Waited for Fee Step-Up: <b class="warn-txt">${de.bookedSteppedUp.toLocaleString()}</b> (${(de.bookedSteppedUp/totBooked*100).toFixed(0)}%)</div>
+        <hr style="border:none;border-top:1px solid var(--line);margin:7px 0">
+        <div>Deadline Warnings: <b>${de.events.deadlineClose.toLocaleString()}</b> · Drops: <b>${de.events.gigDropped.toLocaleString()}</b></div>
+        <div>Expired Gigs: <b>${de.events.gigExpired.toLocaleString()}</b> · Late Pickups: <b>${de.events.driverLate.toLocaleString()}</b></div>
+        <div>Failed Visits: <b class="${de.events.visitFailed ? 'bad-txt' : 'good-txt'}">${de.events.visitFailed.toLocaleString()}</b> ${Object.keys(de.events.failedReasons).length ? '(' + esc(JSON.stringify(de.events.failedReasons)) + ')' : ''}</div>
+      </div>
+    </div>`;
+}
+
+function renderCorridors(mode) {
+  $('#bCorrTop').className = mode === 'top' ? 'pri' : '';
+  $('#bCorrBot').className = mode === 'bot' ? 'pri' : '';
+  const rows = mode === 'top' ? DATA.topCorridors : DATA.bottomCorridors;
+  $('#corridorTable').innerHTML = `
+    <table>
+      <thead><tr><th>Corridor (From → To)</th><th class="r">Dist</th><th class="r">Orders</th><th class="r">Late</th><th class="r">Avg Profit</th><th class="r">Total Profit</th></tr></thead>
+      <tbody>
+        ${rows.map(c => `
+          <tr>
+            <td><b>${esc(c.route)}</b></td>
+            <td class="r mute-txt">${c.km} km</td>
+            <td class="r">${c.orders}</td>
+            <td class="r ${c.late ? 'bad-txt' : 'mute-txt'}">${c.late}</td>
+            <td class="r mono ${c.avgMarginEuros >= 0 ? 'good-txt' : 'bad-txt'}">${eur(c.avgMarginEuros)}</td>
+            <td class="r mono ${c.marginEuros >= 0 ? 'good-txt' : 'bad-txt'}"><b>${eur(c.marginEuros)}</b></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderFinlandMap() {
+  const towns = DATA.towns;
+  if (!towns.length) return;
+  const lats = towns.map(t => t.lat), lons = towns.map(t => t.lon);
+  const minLat = Math.min(...lats) - 0.3, maxLat = Math.max(...lats) + 0.3;
+  const minLon = Math.min(...lons) - 0.5, maxLon = Math.max(...lons) + 0.5;
+  const W = 380, H = 410;
+
+  const xOf = lon => 24 + ((lon - minLon) / Math.max(0.1, maxLon - minLon)) * (W - 48);
+  const yOf = lat => H - 24 - ((lat - minLat) / Math.max(0.1, maxLat - minLat)) * (H - 48);
+  const scaleDiv = Math.sqrt(Math.max(1, DATA.weeksCount || 1));
+
+  let dots = '';
+  towns.forEach(t => {
+    const x = xOf(t.lon), y = yOf(t.lat);
+    const r = Math.max(4, Math.min(16, 3.5 + Math.sqrt(t.pickups / scaleDiv) * 1.9));
+    const col = t.pickups === 0 ? '#475569' : (t.marginEuros >= 0 ? '#10b981' : '#ef4444');
+    const tip = `<b>${esc(t.name)}</b><br>Avg Local Drivers (≤30km): <b>${t.localDrivers}</b><br>Pickups: ${t.pickups} · Deliveries: ${t.deliveries}<br>Net Profit: <b>${eur(t.marginEuros)}</b><br>Late Orders: ${t.lateOrders} · Avg Fee/Ref: ${t.avgFeeToRef}×`;
+    dots += `
+      <g onmousemove="showTip(event, ${esc(JSON.stringify(tip))})" onmouseout="hideTip()" style="cursor:pointer">
+        <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${col}" fill-opacity="0.78" stroke="#fff" stroke-opacity="0.35"/>
+        ${(t.pickups / scaleDiv) >= 10 || t.localDrivers >= 25 ? `<text x="${x.toFixed(1)}" y="${(y - r - 3).toFixed(1)}" fill="var(--ink-dim)" font-size="9.5" text-anchor="middle">${esc(t.name)}</text>` : ''}
+      </g>`;
+  });
+
+  $('#finlandMap').innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:390px;background:var(--bg-elev);border-radius:10px;border:1px solid var(--line)">${dots}</svg>`;
+}
+
+function renderNoteAudit() {
+  const na = DATA.noteAudit;
+  if (!na) { $('#noteAuditStrip').innerHTML = ''; return; }
+  const pills = Object.entries(na.metrics).map(([k, v]) => {
+    const cls = v.accuracyPct >= 98 ? 'good' : (v.accuracyPct >= 90 ? 'warn' : 'bad');
+    return `<span class="badge ${cls}">${esc(k)}: ${v.correct}/${v.total} (${v.accuracyPct}%)</span>`;
+  }).join(' ');
+  const mm = na.mismatches || [];
+  $('#noteAuditStrip').innerHTML = `
+    <div style="padding:8px 12px;background:var(--bg-elev);border:1px solid var(--line);border-radius:8px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <b style="font-size:12px">Note Parser vs Post-Game Reveal Truth:</b> ${pills}
+        ${mm.length ? `<span class="mute-txt" style="font-size:11.5px">(${mm.length} mismatch${mm.length===1?'':'es'})</span>` : '<span class="badge good">0 Mismatches!</span>'}
+      </div>
+    </div>`;
+}
+
+function renderOrdersTable(mode) {
+  ORD_MODE = mode || 'worst';
+  $('#bOrdWorst').className = ORD_MODE === 'worst' ? 'pri' : '';
+  $('#bOrdLate').className = ORD_MODE === 'late' ? 'pri' : '';
+  $('#bOrdBest').className = ORD_MODE === 'best' ? 'pri' : '';
+
+  const baseRows = ORD_MODE === 'worst' ? DATA.worstOrders : (ORD_MODE === 'late' ? (DATA.lateOrders || DATA.worstOrders) : DATA.bestOrders);
+  const q = (($('#ordSearch') && $('#ordSearch').value) || '').trim().toLowerCase();
+  const rows = q
+    ? baseRows.filter(r =>
+        (r.id && r.id.toLowerCase().includes(q)) ||
+        (r.route && r.route.toLowerCase().includes(q)) ||
+        (r.worldName && r.worldName.toLowerCase().includes(q)) ||
+        (r.note && r.note.toLowerCase().includes(q)) ||
+        (r.option && r.option.toLowerCase().includes(q))
+      )
+    : baseRows;
+
+  $('#ordersTable').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          ${DATA.isMultiWeek ? '<th>Week</th>' : ''}
+          <th>Order</th><th>Route</th><th>Opt</th><th>SLA</th>
+          <th class="r">Price (×List)</th><th class="r">Ref Fee</th><th class="r">Driver Paid (×Ref)</th>
+          <th class="r">Penalties</th><th class="r">Net Margin</th><th>Note &amp; Reveal Truth</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => {
+          const trFlags = [];
+          if (r.truth) {
+            if (r.truth.manual) trFlags.push('Manual');
+            if (r.truth.plates) trFlags.push('Plates');
+            if (r.truth.summerTyres) trFlags.push('SummerTyres');
+            if (r.truth.noteDeadline) trFlags.push('NoteDue ' + r.truth.noteDeadline);
+          }
+          return `
+          <tr>
+            ${DATA.isMultiWeek ? `<td style="font-size:11.5px"><b>${esc(r.worldName || r.worldId)}</b></td>` : ''}
+            <td class="mono"><b>${esc(r.id)}</b>${r.legs > 1 ? ' <span class="badge info">2-car</span>' : ''}</td>
+            <td>${esc(r.route)}</td>
+            <td>${esc(r.option)}</td>
+            <td>
+              <span class="badge ${r.onTime ? 'good' : 'bad'}">${r.onTime ? 'On-Time' : 'Late'}</span>
+              ${r.failedVisits.map(f => `<span class="badge bad">fail:${esc(f)}</span>`).join(' ')}
+            </td>
+            <td class="r mono">${eur(r.priceEuros)} <span class="mute-txt">(${r.priceToList}×)</span></td>
+            <td class="r mono mute-txt">${eur(r.refFeeEuros)}</td>
+            <td class="r mono">${eur(r.driverFeeEuros)} <span class="mute-txt">(${r.feeToRef}×)</span></td>
+            <td class="r mono ${r.penaltyEuros > 0 ? 'bad-txt' : 'mute-txt'}">${r.penaltyEuros > 0 ? '−'+eur(r.penaltyEuros) : '—'}</td>
+            <td class="r mono ${r.marginEuros >= 0 ? 'good-txt' : 'bad-txt'}"><b>${eur(r.marginEuros)}</b></td>
+            <td style="max-width:340px;font-size:11.5px">
+              ${r.note ? `<div>"${esc(r.note)}"</div>` : '<span class="mute-txt">—</span>'}
+              ${trFlags.length ? `<div class="mute-txt">Truth: [${esc(trFlags.join(', '))}] · Ready ${esc(r.truth.readyAt)}</div>` : ''}
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+init();
+</script>
+</body>
+</html>
