@@ -2636,6 +2636,171 @@
       "batchName": null,
       "batchIndex": null,
       "batchTotal": null
+    },
+    "wd271e5713fe3777800da": {
+      "worldId": "wd271e5713fe3777800da",
+      "name": "Practice #53 · Bothnia (L8)",
+      "level": 8,
+      "kind": "practice",
+      "seed": null,
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "updatedAt": 1794724377,
+      "score": {
+        "marginCents": 636316,
+        "revenueCents": 1972521,
+        "wonOrders": 206,
+        "onTimeShare": 0.9368932038834952,
+        "ranked": true
+      }
+    },
+    "w5e941619fb9e697b8e2e": {
+      "worldId": "w5e941619fb9e697b8e2e",
+      "name": "Practice #54 · Kantele (L8)",
+      "level": 8,
+      "kind": "practice",
+      "seed": null,
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "updatedAt": 1794724455,
+      "score": {
+        "marginCents": 1077435,
+        "revenueCents": 2845048,
+        "wonOrders": 249,
+        "onTimeShare": 0.9558232931726908,
+        "ranked": true
+      }
+    },
+    "w6b2de9d8d3951648124f": {
+      "worldId": "w6b2de9d8d3951648124f",
+      "name": "Practice #55 · Mielikki (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null
+    },
+    "w47a27c1313e51af3b455": {
+      "worldId": "w47a27c1313e51af3b455",
+      "name": "Practice #56 · Tellervo (L8)",
+      "level": 8,
+      "kind": "practice",
+      "seed": null,
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "updatedAt": 1794724505,
+      "score": {
+        "marginCents": 1247295,
+        "revenueCents": 3361596,
+        "wonOrders": 333,
+        "onTimeShare": 0.972972972972973,
+        "ranked": true
+      }
+    },
+    "wdcb064ecc037817e82bc": {
+      "worldId": "wdcb064ecc037817e82bc",
+      "name": "Practice #57 · Ahti (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null
+    },
+    "w6c041585a3316946da83": {
+      "worldId": "w6c041585a3316946da83",
+      "name": "Practice #58 · Pellervo (L8)",
+      "level": 8,
+      "kind": "practice",
+      "seed": null,
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "updatedAt": 1794724573,
+      "score": {
+        "marginCents": 1099239,
+        "revenueCents": 2995667,
+        "wonOrders": 287,
+        "onTimeShare": 0.9547038327526133,
+        "ranked": true
+      }
+    },
+    "we23a216ff77c0f20a5d9": {
+      "worldId": "we23a216ff77c0f20a5d9",
+      "name": "Practice #59 · Jouko (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null
+    },
+    "wd0b7a2abd1f385fdaacf": {
+      "worldId": "wd0b7a2abd1f385fdaacf",
+      "name": "Practice #60 · Louhi (L8)",
+      "level": 8,
+      "kind": "practice",
+      "seed": null,
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null,
+      "updatedAt": 1794724663,
+      "score": {
+        "marginCents": 1652670,
+        "revenueCents": 4486591,
+        "wonOrders": 373,
+        "onTimeShare": 0.9785522788203753,
+        "ranked": true
+      }
+    },
+    "wae3cab7f30f41c83d416": {
+      "worldId": "wae3cab7f30f41c83d416",
+      "name": "Practice #61 · Untamo (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null
+    },
+    "w7efe9c36bedb0a8c084f": {
+      "worldId": "w7efe9c36bedb0a8c084f",
+      "name": "Practice #62 · Rauni (L8)",
+      "level": 8,
+      "kind": "practice",
+      "boardRun": null,
+      "season": null,
+      "batchId": null,
+      "batchName": null,
+      "batchIndex": null,
+      "batchTotal": null
     }
   },
   "batches": {
@@ -2885,7 +3050,7 @@
     }
   },
   "counters": {
-    "practice": 52,
+    "practice": 62,
     "pack": 16
   }
 }
