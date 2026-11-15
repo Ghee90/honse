@@ -493,6 +493,7 @@ label.ck { display: inline-flex; gap: 5px; align-items: center; cursor: pointer;
   </label>
   <button id="bCreate" class="pri">+ Create</button>
   <div class="divider"></div>
+  <button id="bBigData" class="sm" style="border-color:var(--purple);color:var(--purple);font-weight:600" title="Open zero-overhead Big Data Analytics across all completed runs and model versions">📈 Big Data All-Runs</button>
   <button id="bAnalytics" class="sm" style="border-color:var(--acc);color:var(--acc);font-weight:600" title="Open visual post-run P&L, quoting, and corridor analytics">📊 Post-Run Analytics</button>
   <button id="bFork" class="sm" title="Clone this practice world at the current minute to test an alternative strategy">⑂ Fork</button>
   <button id="bDelete" class="sm bad-btn" title="Delete world and free practice slot">✕ Delete</button>
@@ -2035,6 +2036,9 @@ $('#bRenameWorld').onclick = async () => {
   } catch (e) { toast(e.message); }
 };
 $('#bRefresh').onclick = () => syncWorld().catch(e => toast(e.message));
+$('#bBigData').onclick = () => {
+  window.open('/analytics?view=bigdata', '_blank');
+};
 $('#bAnalytics').onclick = () => {
   const curW = S.worlds.find(w => w.worldId === S.wid);
   if (curW && curW.batchId) {

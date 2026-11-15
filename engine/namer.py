@@ -296,13 +296,67 @@ def enrich_worlds(raw_worlds: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "batchName": existing.get("batchName"),
                 "batchIndex": existing.get("batchIndex"),
                 "batchTotal": existing.get("batchTotal"),
+                "updatedAt": existing.get("updatedAt"),
                 "score": existing.get("score"),
             }
             out.append(enriched)
 
+        seen_ids = {w["worldId"] for w in out}
+        for wid, existing in db["worlds"].items():
+            if wid not in seen_ids and existing.get("score"):
+                out.append({
+                    "worldId": wid,
+                    "name": existing.get("name") or wid[:10],
+                    "level": existing.get("level", 8),
+                    "kind": existing.get("kind", "practice"),
+                    "boardRun": existing.get("boardRun"),
+                    "season": existing.get("season"),
+                    "seed": existing.get("seed"),
+                    "batchId": existing.get("batchId"),
+                    "batchName": existing.get("batchName"),
+                    "batchIndex": existing.get("batchIndex"),
+                    "batchTotal": existing.get("batchTotal"),
+                    "updatedAt": existing.get("updatedAt"),
+                    "score": existing.get("score"),
+                    "ended": True,
+                })
+
         if dirty:
             _save_db(db)
         return out
+
+
+def get_bigdata_catalog() -> dict[str, Any]:
+    """Read-only zero-overhead local catalog of all recorded worlds and batches from world_names.json (0 upstream API calls)."""
+    db = _load_db()
+    worlds_list: list[dict[str, Any]] = []
+    for seq_idx, (wid, w) in enumerate(db.get("worlds", {}).items(), 1):
+        sc = w.get("score")
+        has_orders = bool(sc and (sc.get("wonOrders", 0) > 0 or sc.get("marginCents", 0) != 0 or sc.get("revenueCents", 0) > 0))
+        worlds_list.append({
+            "seqIndex": seq_idx,
+            "worldId": wid,
+            "name": w.get("name") or wid[:10],
+            "level": w.get("level", 8),
+            "kind": w.get("kind", "practice"),
+            "seed": w.get("seed"),
+            "boardRun": w.get("boardRun"),
+            "season": w.get("season"),
+            "batchId": w.get("batchId"),
+            "batchName": w.get("batchName"),
+            "batchIndex": w.get("batchIndex"),
+            "batchTotal": w.get("batchTotal"),
+            "updatedAt": w.get("updatedAt"),
+            "score": sc,
+            "ended": has_orders or bool(sc),
+            "completed": has_orders,
+        })
+    return {
+        "worlds": worlds_list,
+        "batches": list_batches(worlds_list),
+        "rawBatches": db.get("batches", {}),
+        "counters": db.get("counters", {}),
+    }
 
 
 def list_batches(enriched_worlds: list[dict[str, Any]]) -> list[dict[str, Any]]:

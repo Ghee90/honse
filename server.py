@@ -22,6 +22,7 @@ from engine.desk import DAY, WAKE_ON, SmartDesk
 from engine.namer import (
     create_practice_pack,
     enrich_worlds,
+    get_bigdata_catalog,
     get_world_name,
     list_batches,
     record_world_score,
@@ -541,11 +542,17 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send_json(400, {"error": "worldId and name are required"})
                 return self._send_json(200, rename_world(wid, new_name))
 
+            if self.command == "GET" and clean_path == "/bot/bigdata":
+                return self._send_json(200, get_bigdata_catalog())
+
             if self.command == "GET" and clean_path == "/bot/worlds-meta":
-                client = Client(BASE, KEY)
-                enriched = enrich_worlds(client.worlds())
-                batches = list_batches(enriched)
-                return self._send_json(200, {"worlds": enriched, "batches": batches})
+                try:
+                    client = Client(BASE, KEY)
+                    enriched = enrich_worlds(client.worlds())
+                    batches = list_batches(enriched)
+                    return self._send_json(200, {"worlds": enriched, "batches": batches})
+                except Exception:
+                    return self._send_json(200, get_bigdata_catalog())
 
             if self.command == "POST" and clean_path == "/bot/parse-notes":
                 payload = json.loads(raw_body or b"[]")
@@ -628,7 +635,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json(200, {"base": BASE, "hasKey": bool(KEY)})
 
         clean_path = unquote(self.path.split("?", 1)[0])
-        if clean_path in ("/analytics", "/analytics/", "/analytics.html"):
+        if clean_path == "/world_names.json":
+            wn_file = os.path.join(HERE, "world_names.json")
+            if os.path.isfile(wn_file):
+                with open(wn_file, "rb") as f:
+                    return self._send(200, f.read(), {"Content-Type": "application/json; charset=utf-8"})
+        if clean_path in ("/analytics", "/analytics/", "/analytics.html", "/bigdata", "/bigdata/", "/bigdata.html"):
             an_file = os.path.join(HERE, "analytics.html")
             if os.path.isfile(an_file):
                 with open(an_file, "rb") as f:
