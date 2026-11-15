@@ -149,10 +149,15 @@ class NetworkIndex:
         active_today: set[str],
         now: int,
         lead_mins: int = 240,
+        gig_viewers: Optional[set[str]] = None,
+        urgent: bool = False,
     ) -> list[tuple[float, str, str]]:
         """Scores drivers for direct offers -> (score, driver_id, kind: 'finisher'|'homebound'|'local')."""
         scored: list[tuple[float, str, str]] = []
         trip_km = self.straight_km(pickup_place, delivery_place)
+        viewers = gig_viewers or set()
+        max_local_km = 145.0 if urgent else 85.0
+
         for did, drv in self.drivers.items():
             if audience["experienced"] and not is_experienced(drv):
                 continue
@@ -163,29 +168,35 @@ class NetworkIndex:
             d_home_dest = self.straight_km(delivery_place, home)
             fin = finishing_places.get(did)
             is_active = did in active_today
+            viewed_this = did in viewers
             rel = driver_reliability(drv) * 3.5
+            view_bonus = 18.0 if viewed_this else 0.0
 
-            # 1. Finisher near pickup: saves outbound ticket AND app doesn't notify them here!
-            if fin and now - 60 <= fin[1] <= now + 240:
-                d_fin_pick = self.straight_km(fin[0], pickup_place)
-                if d_fin_pick <= 45.0:
-                    # Huge bonus if this car also brings them closer to home!
-                    home_saving = max(-15.0, (self.straight_km(fin[0], home) - d_home_dest) * 0.25)
-                    sc = 55.0 - d_fin_pick * 0.70 + home_saving + (14.0 if is_active else 0.0) + rel
-                    scored.append((sc, did, "finisher"))
+            # If driver has a known gig today/recently, their position is `fin[0]` at `fin[1]`, NOT `home`!
+            if fin is not None and fin[1] >= now - 180:
+                # Cannot take this gig if their current gig finishes too close to lastPickupAt
+                if fin[1] > now + max(30, lead_mins - 45):
                     continue
+                d_fin_pick = self.straight_km(fin[0], pickup_place)
+                if d_fin_pick <= 50.0 and fin[1] <= now + 240:
+                    home_saving = max(-15.0, (self.straight_km(fin[0], home) - d_home_dest) * 0.25)
+                    wait_pen = max(0.0, (fin[1] - now) * 0.06)
+                    sc = 58.0 - d_fin_pick * 0.70 - wait_pen + home_saving + (14.0 if is_active else 0.0) + view_bonus + rel
+                    scored.append((sc, did, "finisher"))
+                # Driver is in another town finishing a gig -> do NOT treat them as sitting at `home`!
+                continue
 
             # 2. Homebound driver living at delivery town (pays zero day-of return ticket; gets no push notif if >30km!)
             d_home_pick = self.straight_km(home, pickup_place)
-            if d_home_dest <= 25.0 and d_home_pick > 30.0 and lead_mins >= max(180, int(trip_km * 0.85)):
-                if d_home_pick <= 340.0 and (is_active or d_home_pick <= 180.0):
-                    sc = 32.0 - d_home_dest * 0.60 - d_home_pick * 0.08 + (24.0 if is_active else 0.0) + rel
+            if d_home_dest <= 28.0 and d_home_pick > 30.0 and lead_mins >= max(160, int(trip_km * 0.80)):
+                if d_home_pick <= 340.0 and (is_active or viewed_this or d_home_pick <= 180.0):
+                    sc = 34.0 - d_home_dest * 0.60 - d_home_pick * 0.08 + (24.0 if is_active else 0.0) + view_bonus + rel
                     scored.append((sc, did, "homebound"))
                     continue
 
-            # 3. Local pickup-area driver
-            if d_home_pick <= 80.0:
-                sc = 18.0 - d_home_pick * 0.45 - d_home_dest * 0.18 + (20.0 if is_active else 0.0) + rel
+            # 3. Local pickup-area driver (or viewer of this gig)
+            if d_home_pick <= max_local_km or (viewed_this and d_home_pick <= 200.0):
+                sc = 18.0 - d_home_pick * 0.42 - d_home_dest * 0.16 + (22.0 if is_active else 0.0) + view_bonus + rel
                 scored.append((sc, did, "local"))
 
         scored.sort(reverse=True)

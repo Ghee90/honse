@@ -64,6 +64,9 @@ class QuoteMeta:
     delivery_place: str
     declined: bool
     primary_mult: float
+    comp_only_mult: float
+    was_floor_bound: bool
+    is_bulk: bool
     est_cost_cents: int
     at: int
 
@@ -96,7 +99,10 @@ class SmartDesk:
         self.gig_posted_at: dict[str, int] = {}
         self.booked: set[str] = set()
         self.started: set[str] = set()
+        self.picked_up_legs: set[tuple[str, int]] = set()
+        self.doomed_late_orders: set[str] = set()
         self.gig_driver: dict[str, str] = {}
+        self.gig_viewers: dict[str, set[str]] = {}
         self.urgent: set[str] = set()
         self.early_boosted: set[str] = set()
         self._last_sweep_min: int = -60
@@ -108,6 +114,9 @@ class SmartDesk:
         self.gig_open_offers: dict[str, int] = {}
         self.offered_pairs: set[tuple[str, str]] = set()
         self.finishing_places: dict[str, tuple[str, int]] = {}  # driver_id -> (place_id, est_finish_min)
+        self.drops_today: int = 0
+        self.bookings_today: int = 0
+        self.price_war_day: Optional[int] = None
 
         # Calibrated against true normal-world roster (~2,400 drivers; L7/L8 shortage = 26%..40% -> 620..960 drivers)
         self.shortage_ratio = max(0.20, min(1.30, self.net.total_drivers / 2400.0))
@@ -122,16 +131,17 @@ class SmartDesk:
         elif self.level == 7:
             self.world_price_mult = 1.27
         else:
-            # Level 8 competitor baseline is 1.26x..1.54x list (midpoint ~1.42x)
-            self.world_price_mult = 1.42
+            # Level 8 competitor baseline is 1.26x..1.54x list (midpoint ~1.40x)
+            self.world_price_mult = 1.40
+        self._day_start_world_mult = self.world_price_mult
 
         if self.level == 1:
             self.fee_mult_est = 1.01
         elif self.shortage_Mode:
-            # 0.35 ratio (~840 drivers) -> 1.00; 0.26 ratio (~625 drivers) -> 1.12
-            self.fee_mult_est = min(1.22, max(0.98, 1.00 + max(0.0, 0.35 - self.shortage_ratio) * 1.25))
+            # 0.35 ratio (~840 drivers) -> 0.98; 0.26 ratio (~625 drivers) -> 1.08
+            self.fee_mult_est = min(1.14, max(0.95, 0.98 + max(0.0, 0.36 - self.shortage_ratio) * 1.10))
         else:
-            self.fee_mult_est = 0.95
+            self.fee_mult_est = 0.94
 
         avg_sup = sum(self.net.supply_score.values()) / max(1, len(self.net.supply_score))
         self.avg_supply_score = max(1.0, avg_sup)
@@ -170,9 +180,12 @@ class SmartDesk:
         d = self.now // DAY
         if d != self.active_day:
             self.active_day = d
+            self._day_start_world_mult = self.world_price_mult
             self.active_drivers_today.clear()
             self.driver_offers_today.clear()
             self.region_recent_wins.clear()
+            self.drops_today = 0
+            self.bookings_today = 0
 
     def _note_of(self, req: PriceRequest) -> ParsedNote:
         rid = req["id"]
@@ -210,7 +223,10 @@ class SmartDesk:
                 self.net.add_forecast(ev["from"], ev["to"], ev["placeIds"], ev["text"])
             elif k == "deadline_close":
                 self.urgent.add(ev["orderId"])
+            elif k == "picked_up":
+                self.picked_up_legs.add((ev["orderId"], ev["leg"]))
             elif k == "gig_viewed":
+                self.gig_viewers.setdefault(ev["gigId"], set()).add(ev["driverId"])
                 if ev["at"] // DAY == self.active_day:
                     self.active_drivers_today.add(ev["driverId"])
             elif k == "ledger":
@@ -241,6 +257,9 @@ class SmartDesk:
         }
         for o in self.orders.values():
             self._ensure_leg_states(o)
+            for idx, d_at in enumerate(o["deliveredAt"]):
+                if d_at is not None:
+                    self.picked_up_legs.add((o["id"], idx))
 
         for ev in history:
             if ev["kind"] == "visit_failed":
@@ -272,7 +291,7 @@ class SmartDesk:
     def handle(self, event: DeskEvent) -> None:
         self.now = max(self.now, event["at"])
         self._roll_day()
-        if self.now - self._last_sweep_min >= 20:
+        if self.now - self._last_sweep_min >= 15:
             self._last_sweep_min = self.now
             self._sweep_aging_orders()
         k = event["kind"]
@@ -290,19 +309,30 @@ class SmartDesk:
         elif k == "release":
             self._on_payment_release(event["orderId"], event["leg"])
         elif k == "gig_viewed":
-            self.active_drivers_today.add(event["driverId"])
+            did = event["driverId"]
+            gid = event["gigId"]
+            self.active_drivers_today.add(did)
+            self.gig_viewers.setdefault(gid, set()).add(did)
         elif k == "gig_booked":
             self._on_gig_booked(event["gigId"], event["driverId"], event["feeCents"])
         elif k == "gig_started":
             self.started.add(event["gigId"])
         elif k in ("gig_dropped", "no_show"):
+            self.drops_today += 1
             self._on_gig_lost_driver(event["gigId"], event["driverId"], k)
         elif k == "driver_late":
             self._on_driver_late(event["gigId"], event["driverId"], event["pickupAt"])
         elif k == "gig_expired":
             self._on_gig_expired(event["gigId"])
         elif k == "offer_answered":
-            self.gig_open_offers[event["gigId"]] = max(0, self.gig_open_offers.get(event["gigId"], 1) - 1)
+            gid = event["gigId"]
+            self.gig_open_offers[gid] = max(0, self.gig_open_offers.get(gid, 1) - 1)
+            if event.get("status") != "accepted" and gid in self.posts and gid not in self.booked:
+                act = self.posts[gid]
+                first_oid = act["stops"][0]["orderId"]
+                self._maybe_send_offers(gid, act, urgent=(first_oid in self.urgent))
+        elif k == "picked_up":
+            self._on_picked_up(event["orderId"], event["leg"], event["at"])
         elif k == "visit_failed":
             self._on_visit_failed(event["orderId"], event["leg"], event["reason"])
         elif k == "delivered":
@@ -322,6 +352,7 @@ class SmartDesk:
             return
         if line["kind"] in ("late_refund", "undelivered_penalty"):
             self.order_had_late_refund.add(oid)
+            self.doomed_late_orders.add(oid)
             if oid in self.order_scored:
                 self.on_time_orders = max(0, self.on_time_orders - 1)
                 self.late_orders += 1
@@ -334,7 +365,7 @@ class SmartDesk:
             self.delivered_orders += 1
             req = self.requests.get(oid)
             did = req["dealerId"] if req else ""
-            if oid in self.order_had_late_refund:
+            if oid in self.order_had_late_refund or oid in self.doomed_late_orders:
                 self.late_orders += 1
                 if did:
                     self.dealer_trust[did] = self.dealer_trust.get(did, 0) // 2
@@ -363,7 +394,7 @@ class SmartDesk:
                     cnt += 1
 
         # Include expected wins from quotes currently in their 15-minute respondBy window so bulk bursts never blindside us!
-        exp_win_w = 1.0 if self.level <= 3 else 0.45
+        exp_win_w = 1.0 if self.level <= 3 else 0.42
         inflight = 0.0
         for _, p_q in self.pending_quotes:
             if near_place is None or self.net.straight_km(p_q, near_place) <= 40.0:
@@ -371,18 +402,46 @@ class SmartDesk:
         return cnt + int(inflight)
 
     def _sla_headroom(self) -> float:
-        """Positive = safe orders above 92.0% target buffer (ranking floor is 90.0%); counts jeopardized orders immediately."""
-        at_risk = sum(
-            1
-            for oid, o in self.orders.items()
-            if o["status"] == "waiting"
-            and not any(g in self.booked for g in self.gigs_of(oid))
-            and self.now >= o["lastPickupAt"] - 150
+        """Positive = safe orders above 92.8% target buffer (ranking floor is 90.0%); counts doomed & in-flight orders immediately."""
+        doomed_waiting = 0
+        at_risk_waiting = 0
+        other_waiting = 0
+
+        for oid, o in self.orders.items():
+            if o["status"] != "waiting" or oid in self.order_scored:
+                continue
+            gids = self.gigs_of(oid)
+            is_booked = any(g in self.booked for g in gids)
+            picked_first = (oid, 0) in self.picked_up_legs
+
+            if (
+                oid in self.doomed_late_orders
+                or oid in self.order_had_late_refund
+                or (not picked_first and self.now > o["lastPickupAt"])
+                or any(d is not None and d > o["deadline"] for d in o["deliveredAt"])
+            ):
+                self.doomed_late_orders.add(oid)
+                doomed_waiting += 1
+            elif not is_booked and (self.now >= o["lastPickupAt"] - 240 or oid in self.urgent):
+                at_risk_waiting += 1
+            else:
+                other_waiting += 1
+
+        effective_total = self.delivered_orders + doomed_waiting + at_risk_waiting + other_waiting
+        if effective_total < 8:
+            return 2.5
+
+        inflight_risk_rate = 0.045 if self.shortage_Mode else 0.025
+        if self.drops_today >= 6:
+            inflight_risk_rate += 0.020
+        effective_late = (
+            self.late_orders
+            + doomed_waiting
+            + 0.65 * at_risk_waiting
+            + inflight_risk_rate * other_waiting
         )
-        total = self.delivered_orders + at_risk
-        if total < 10:
-            return 3.0
-        return self.on_time_orders - 0.922 * total
+        # Allow at most 7.2% late orders (= 92.8% on-time target) before headroom goes negative
+        return (0.072 * effective_total) - effective_late
 
     def _estimate_fulfillment_cost(self, req: PriceRequest, note: ParsedNote) -> tuple[int, Audience, float, float]:
         """Returns (expected_driver_fee_cents, required_audience, supply_quality, dest_ratio)."""
@@ -405,29 +464,49 @@ class SmartDesk:
         mult = self.fee_mult_est
         # Town-level scarcity vs hub-destination discount (homebound drivers at delivery hub need no return ticket!)
         if supply_quality < 0.85:
-            mult *= min(1.46, (0.88 / max(0.12, supply_quality)) ** 0.25)
+            mult *= min(1.50, (0.88 / max(0.12, supply_quality)) ** 0.28)
         elif supply_quality > 1.20:
-            mult *= max(0.82, (1.18 / supply_quality) ** 0.18)
+            mult *= max(0.84, (1.18 / supply_quality) ** 0.16)
+
+        total_road_min = sum(self.net.minutes(l["pickup"]["placeId"], l["delivery"]["placeId"]) for l in legs)
+        if self.shortage_Mode and total_road_min > 200:
+            # Long-haul gigs in shortage worlds require much higher fees for return transit & max-day-duration limits
+            mult *= 1.0 + min(0.45, ((total_road_min - 200) / 280.0) * 0.38)
 
         if len(legs) == 1:
-            if dest_notif >= 12 and local_notif >= 2:
+            if dest_notif >= 14 and local_notif >= 3 and total_road_min <= 220:
                 # Car heads straight into a driver hub -> homebound drivers take this cheaply!
                 mult *= 0.92
-            elif dest_notif <= 1:
+            elif dest_notif == 0:
+                mult *= 1.26
+            elif dest_notif <= 2:
                 # Dead-end delivery town costs driver an expensive day-of return ticket
-                mult *= 1.13
+                mult *= 1.18
+            elif dest_notif <= 5:
+                mult *= 1.09
 
         if local_notif == 0:
-            mult *= 1.18 if dest_notif >= 10 else 1.26
+            mult *= 1.22 if dest_notif >= 10 else 1.34
         elif local_notif <= 2:
-            mult *= 1.08
+            mult *= 1.12
+        elif local_notif <= 4 and self.shortage_Mode:
+            mult *= 1.05
+
+        # Local unbooked congestion surcharge
+        local_waiting = self._active_unbooked_orders(p_first)
+        if local_waiting > 0:
+            mult *= 1.0 + min(0.26, (local_waiting / max(2.0, local_notif * 0.60)) * 0.12)
+
+        # Flu / drop shock surcharge
+        if self.drops_today >= 5:
+            mult *= 1.0 + min(0.18, (self.drops_today - 3) * 0.02)
 
         if experienced:
             mult *= 1.08
         if manual:
             mult *= 1.06
         if any(l["pickup"]["privateAddress"] or l["delivery"]["privateAddress"] for l in legs):
-            mult *= 1.07
+            mult *= 1.08
 
         extra_cents = 0
         if note.needs_plates:
@@ -443,24 +522,15 @@ class SmartDesk:
             if self.net.has_snow(l["pickup"]["placeId"], req["arrivedAt"], req["arrivedAt"] + 2 * DAY) or self.net.has_snow(
                 l["delivery"]["placeId"], req["arrivedAt"], req["arrivedAt"] + 2 * DAY
             ):
-                mult *= 1.10
+                mult *= 1.12
 
-        # Backhaul / finishing driver / chainable corridor synergy!
+        # Only discount when a BOOKED driver is actually finishing near `p_first` in time!
         has_finisher = any(
-            self.net.straight_km(fin_place, p_first) <= 35.0 and self.now - 30 <= fin_at <= req["arrivedAt"] + 360
+            self.net.straight_km(fin_place, p_first) <= 35.0 and self.now - 30 <= fin_at <= req["arrivedAt"] + 300
             for fin_place, fin_at in self.finishing_places.values()
         )
-        has_pair_order = any(
-            o["status"] == "waiting"
-            and len(o["legs"]) == 1
-            and (
-                self.net.minutes(o["legs"][0]["delivery"]["placeId"], p_first) <= 35
-                or self.net.minutes(d_last, o["legs"][0]["pickup"]["placeId"]) <= 35
-            )
-            for o in self.orders.values()
-        )
-        if has_finisher or has_pair_order:
-            mult *= 0.88
+        if has_finisher:
+            mult *= 0.90
 
         est_cents = int(round(req["referenceFeeCents"] * mult + extra_cents))
         if region_pool == 0:
@@ -565,8 +635,14 @@ class SmartDesk:
         tod = self.now % DAY
         if not (8 * HOUR <= tod <= 18 * HOUR + 15):
             return False
+        if self.price_war_day == day:
+            return True
         hist = self.day_outcomes.get(day, [])
-        return len(hist) >= 12 and (sum(hist[-12:]) / 12.0) <= 0.17 and self.day_price_adj.get(day, 0.0) <= -0.09
+        if (len(hist) >= 6 and sum(hist[-6:]) == 0) or (len(hist) >= 9 and sum(hist[-9:]) <= 1):
+            self.price_war_day = day
+            self.world_price_mult = max(self.world_price_mult, self._day_start_world_mult)
+            return True
+        return False
 
     def quote(self, req: PriceRequest) -> None:
         rid = req["id"]
@@ -578,21 +654,26 @@ class SmartDesk:
         d_last = req["legs"][-1]["delivery"]["placeId"]
         local_notif = self.net.matching_notif_count(p_first, audience, region=False)
         region_notif = self.net.matching_notif_count(p_first, audience, region=True)
+        dest_notif = self.net.matching_notif_count(d_last, audience, region=False)
+        total_road_min = sum(self.net.minutes(l["pickup"]["placeId"], l["delivery"]["placeId"]) for l in req["legs"])
 
         # Capacity & Bulk-Order Throttling (includes in-flight respondBy quotes!)
         global_waiting = self._active_unbooked_orders()
         local_waiting = self._active_unbooked_orders(p_first)
+        flu_shock = self.drops_today >= 5
         if self.level == 1:
             global_cap = min(52, max(16, int(self.net.total_drivers * 0.25)))
             local_cap = max(2, int(max(local_notif, region_notif * 0.25) * 0.42))
         else:
-            global_cap = max(14, int(self.net.total_drivers * (0.20 if self.shortage_Mode else 0.45)))
-            local_cap = max(4, int(max(local_notif, region_notif * 0.35) * (0.42 if self.shortage_Mode else 0.75)))
+            cap_factor = (0.16 if flu_shock else 0.21) if self.shortage_Mode else 0.42
+            loc_factor = (0.34 if flu_shock else 0.44) if self.shortage_Mode else 0.72
+            global_cap = max(14, int(self.net.total_drivers * cap_factor))
+            local_cap = max(3, int(max(local_notif, region_notif * 0.30) * loc_factor))
 
         overloaded = global_waiting >= global_cap or local_waiting >= local_cap
         sla_head = self._sla_headroom()
-        sla_tight = sla_head < 1.2
-        sla_critical = sla_head < -0.5
+        sla_tight = sla_head < 1.8
+        sla_critical = sla_head < 0.0
 
         # Levels 1-3: Every quote wins first option at listPriceCents; no goodwill penalty for not quoting!
         if self.level <= 3:
@@ -606,6 +687,7 @@ class SmartDesk:
                 and region_notif >= (2 if self.level == 1 else 1)
                 and first_opt["listPriceCents"] >= eff_l_cost + min_margin
                 and not overloaded
+                and not sla_critical
             ):
                 price = int(first_opt["listPriceCents"])
                 self.pending_quotes.append((req["respondBy"], p_first))
@@ -627,31 +709,59 @@ class SmartDesk:
 
         # Levels 4-8: Competitor-aware, lane-difficulty-aware, multi-option pricing
         day = self.now // DAY
-        day_adj = self.day_price_adj.get(day, 0.0)
+        in_price_war = self._is_price_war_today(day)
+        day_adj = min(self.day_price_adj.get(day, 0.0), -0.22) if in_price_war else self.day_price_adj.get(day, 0.0)
         outage_boost = 0.0
         ob = self.place_outage_boost.get(p_first)
-        if ob and ob[1] == day and 8 * HOUR <= (self.now % DAY) <= 18 * HOUR + 15:
+        if ob and ob[1] == day and 8 * HOUR <= (self.now % DAY) <= 18 * HOUR + 15 and not in_price_war:
             outage_boost = ob[0]
 
         dealer_id = req["dealerId"]
         # RULES.md line 164: +1% accepted price per on-time order at Level 8 (up to +25%)
-        trust_bonus = (self.dealer_trust.get(dealer_id, 0) * 0.0095) if self.level >= 8 else 0.0
+        trust_bonus = (self.dealer_trust.get(dealer_id, 0) * 0.009) if self.level >= 8 else 0.0
         d_hist = self.dealer_wins.get(dealer_id, [])
         dealer_win_rate = (sum(d_hist) / len(d_hist)) if len(d_hist) >= 4 else 0.45
-        anti_war_pad = 0.05 if dealer_win_rate > 0.70 else (-0.02 if len(d_hist) >= 6 and dealer_win_rate < 0.14 else 0.0)
+        anti_war_pad = 0.04 if dealer_win_rate > 0.68 else (-0.015 if len(d_hist) >= 6 and dealer_win_rate < 0.15 else 0.0)
 
         # Empirical competitor lane factor: scales directly with refFee / listPrice[0] + remote destination scarcity!
         ref_to_list = req["referenceFeeCents"] / max(1, req["options"][0]["listPriceCents"])
         if ref_to_list < 0.78:
             # High-margin easy lane: quote sharper so we win 65-75% of these 50%+ margin layups!
             comp_lane_mult = max(0.90, 0.97 - (0.78 - ref_to_list) * 0.24)
-        elif ref_to_list > 0.96:
-            # Expensive lane: competitor prices noticeably higher here too
-            comp_lane_mult = min(1.16, 1.00 + (ref_to_list - 0.96) * 0.40)
+        elif ref_to_list > 0.92:
+            # Expensive / long-haul lane: competitor charges a steep lane factor here
+            comp_lane_mult = min(1.38, 1.00 + (ref_to_list - 0.92) * 0.65)
         else:
             comp_lane_mult = 1.00
         if dest_ratio < 0.55:
-            comp_lane_mult *= 1.05
+            comp_lane_mult *= 1.06
+
+        has_finisher = any(
+            self.net.straight_km(fin_place, p_first) <= 35.0 and self.now - 30 <= fin_at <= req["arrivedAt"] + 300
+            for fin_place, fin_at in self.finishing_places.values()
+        )
+        has_active_homebound = any(
+            d["id"] in self.active_drivers_today
+            for d in self.net.notif_drivers.get(d_last, [])
+            if (not audience["experienced"] or (d["rating"] >= 4.8 and d["completedGigs"] >= 50))
+            and (not audience["manualLicence"] or d["licence"] == "manual")
+        )
+
+        # Hard Structural Toxic-Lane Filter (eliminates Rovaniemi/Kemi/Ylivieska long-haul & dead-end traps in shortage worlds)
+        toxic_lane = False
+        if self.shortage_Mode and not has_finisher:
+            if total_road_min > 380 and (dest_notif <= 8 or local_notif <= 6 or ref_to_list > 0.80) and not has_active_homebound:
+                toxic_lane = True
+            elif ref_to_list > 0.95 and not has_active_homebound:
+                toxic_lane = True
+            elif ref_to_list > 0.89 and (dest_notif <= 2 or local_notif <= 1):
+                toxic_lane = True
+            elif local_notif == 0 and region_notif < 5:
+                toxic_lane = True
+            elif dest_notif == 0 and total_road_min > 165:
+                toxic_lane = True
+            elif in_price_war and (ref_to_list > 0.84 or total_road_min > 260 or local_notif < 2):
+                toxic_lane = True
 
         # Bulk-order (`batchId`) progressive surge: win the best few cars normally, surge on the rest so 40-car bursts never swamp a yard!
         batch_surge = 0.0
@@ -660,73 +770,96 @@ class SmartDesk:
         if bid:
             b_idx = self.batch_counts.get(bid, 0)
             self.batch_counts[bid] = b_idx + 1
-            step_rate = 0.006 if local_notif >= 80 else (0.012 if local_notif >= 15 else 0.022)
+            step_rate = 0.008 if local_notif >= 80 else (0.015 if local_notif >= 15 else 0.028)
             batch_surge = min(0.55, b_idx * step_rate)
-            max_batch_take = max(6, int(max(local_notif, region_notif * 0.25) * (0.55 if self.shortage_Mode else 0.95)))
+            max_batch_take = max(4, int(max(local_notif, region_notif * 0.25) * (0.48 if self.shortage_Mode else 0.85)))
             if b_idx >= max_batch_take:
                 batch_cap_exceeded = True
 
         dest_res = self.dest_price_adj.get(d_last, 0.0)
-        base_comp_mult = max(
+        raw_comp_mult = max(
             0.88,
-            (self.world_price_mult + day_adj + outage_boost + dest_res + anti_war_pad)
-            * comp_lane_mult
-            * (1.0 + trust_bonus)
-            * (1.0 + batch_surge),
+            (self.world_price_mult + day_adj + outage_boost + dest_res + anti_war_pad) * comp_lane_mult,
         )
+        base_comp_mult = raw_comp_mult * (1.0 + trust_bonus) * (1.0 + batch_surge)
 
         has_multi_opts = len(req["options"]) > 1
-        in_price_war = self._is_price_war_today(day)
 
         prices: dict[str, int] = {}
+        floor_bound_by_opt: dict[str, bool] = {}
         best_summary = ""
-        if not batch_cap_exceeded:
+        if not batch_cap_exceeded and not toxic_lane and not overloaded:
             for opt in req["options"]:
                 kind = opt["kind"]
                 list_c = opt["listPriceCents"]
                 slack = self._option_slack_hours(req, opt, note)
 
-                req_slack = 2.5 if not self.shortage_Mode else 3.5
+                req_slack = 2.5 if not self.shortage_Mode else 3.4
                 if kind == "same_day":
-                    if self.shortage_Mode and local_notif == 0:
-                        continue
-                    if self.shortage_Mode and local_notif < 2 and slack < 5.6:
-                        continue
-                    req_slack = 4.3 if self.shortage_Mode else 2.9
+                    if self.shortage_Mode:
+                        max_loc_wait = max(1, int(local_notif * 0.16))
+                        if has_multi_opts and (
+                            local_notif < 5
+                            or local_waiting > max_loc_wait
+                            or slack < 5.0
+                            or total_road_min > 175
+                            or sla_head < 1.8
+                            or flu_shock
+                        ):
+                            continue
+                        if not has_multi_opts and (
+                            local_notif < 3 or slack < 4.5 or total_road_min > 210 or sla_tight or flu_shock
+                        ):
+                            continue
+                    req_slack = 4.2 if self.shortage_Mode else 2.8
+                if total_road_min > 230:
+                    req_slack += (total_road_min - 230) / 60.0
                 if local_notif == 0:
-                    if self.shortage_Mode and slack < 9.2:
+                    if self.shortage_Mode and slack < 9.0:
                         continue
                     req_slack += 2.8
                 elif local_notif <= 2:
                     req_slack += 1.2
-                if sla_tight:
+                if dest_notif <= 2 and self.shortage_Mode:
                     req_slack += 1.2
+                if flu_shock:
+                    req_slack += 1.4
+                if sla_tight:
+                    req_slack += 1.5
                 if sla_critical:
-                    req_slack += 2.0
-                    if local_notif < 2 or kind == "same_day":
-                        continue
-                if overloaded:
                     req_slack += 3.0
+                    if local_notif < 4 or kind == "same_day" or total_road_min > 180:
+                        continue
 
                 if slack < req_slack or region_notif == 0:
                     continue
 
-                opt_spread = (1.02 if kind == "same_day" else (0.99 if kind == "within_3_days" else 1.00)) if has_multi_opts else 1.00
-                urgency_risk = 1.22 if kind == "same_day" else (1.13 if slack < 6.0 else 1.08)
-                if overloaded:
-                    urgency_risk += 0.16
+                opt_spread = (1.06 if kind == "same_day" else (0.985 if kind == "within_3_days" else 1.00)) if has_multi_opts else 1.00
+                urgency_risk = 1.14 if kind == "same_day" else (1.07 if slack < 6.5 else 1.03)
                 if sla_tight:
-                    urgency_risk += 0.08
+                    urgency_risk += 0.06
+                if flu_shock:
+                    urgency_risk += 0.06
                 if in_price_war:
-                    urgency_risk += 0.08
+                    urgency_risk += 0.04
 
-                opt_cost = int(est_cost * (1.08 if kind == "same_day" else (0.94 if kind == "within_3_days" else 0.99)))
-                floor_price = int(round(opt_cost * urgency_risk + (1400 if note.has_constraints else 600)))
+                opt_cost = int(est_cost * (1.05 if kind == "same_day" else (0.92 if kind == "within_3_days" else 0.96)))
+                min_euro_pad = (
+                    (1200 if note.has_constraints else 700)
+                    if self.shortage_Mode
+                    else (800 if note.has_constraints else 400)
+                )
+                floor_price = int(round(opt_cost * urgency_risk + min_euro_pad))
                 comp_price = int(round(list_c * base_comp_mult * opt_spread))
-                q_price = max(floor_price, comp_price)
 
-                if q_price <= list_c * 2.40:
+                # Winner's Curse guard: skip extreme cost-floor outliers where only a broken lane model would accept
+                if floor_price > int(comp_price * (1.16 if in_price_war else 1.28)):
+                    continue
+
+                q_price = max(floor_price, comp_price)
+                if q_price <= list_c * 2.15:
                     prices[kind] = max(100, q_price)
+                    floor_bound_by_opt[kind] = floor_price > int(comp_price * 1.05)
                     if not best_summary:
                         best_summary = f"{kind} €{q_price/100:.0f} ({q_price/list_c:.2f}× list, est €{opt_cost/100:.0f}, {slack:.1f}h slack)"
 
@@ -735,7 +868,11 @@ class SmartDesk:
             declined = True
             safest = req["options"][-1]
             prices[safest["kind"]] = max(100, int(round(safest["listPriceCents"] * 4.5)))
-            reason = "capacity full" if (overloaded or batch_cap_exceeded) else ("SLA shield" if sla_tight else f"tight slack / thin drivers ({local_notif} local)")
+            reason = (
+                "capacity full"
+                if (overloaded or batch_cap_exceeded)
+                else ("toxic/unprofitable lane" if toxic_lane else ("SLA shield" if sla_tight else f"tight slack / thin drivers ({local_notif} local)"))
+            )
             self._log(
                 "decline",
                 f"Polite Decline {rid} ({self.net.place_name(p_first)} → {self.net.place_name(d_last)})",
@@ -753,8 +890,9 @@ class SmartDesk:
             )
 
         ref_k = "next_day" if "next_day" in prices else next(iter(prices))
+        was_floor_bound = floor_bound_by_opt.get(ref_k, False)
         ref_list = next(o["listPriceCents"] for o in req["options"] if o["kind"] == ref_k)
-        norm_mult = (prices[ref_k] / max(1, ref_list)) / (max(0.85, comp_lane_mult) * (1.0 + batch_surge))
+        norm_mult = (prices[ref_k] / max(1, ref_list)) / (max(0.85, comp_lane_mult) * (1.0 + batch_surge) * (1.0 + trust_bonus))
         self.quote_meta[rid] = QuoteMeta(
             request_id=rid,
             dealer_id=dealer_id,
@@ -762,6 +900,9 @@ class SmartDesk:
             delivery_place=d_last,
             declined=declined,
             primary_mult=norm_mult,
+            comp_only_mult=raw_comp_mult / max(0.85, comp_lane_mult),
+            was_floor_bound=was_floor_bound,
+            is_bulk=bool(bid),
             est_cost_cents=est_cost,
             at=self.now,
         )
@@ -776,10 +917,10 @@ class SmartDesk:
 
     def _world_mult_bounds(self) -> tuple[float, float]:
         if self.level >= 8:
-            return (1.26, 1.66)
+            return (1.26, 1.56)
         if self.level == 7:
-            return (1.12, 1.46)
-        return (0.88, 1.22)
+            return (1.12, 1.40)
+        return (0.88, 1.16)
 
     def _on_win(self, order: Order) -> None:
         oid = order["id"]
@@ -787,31 +928,37 @@ class SmartDesk:
         if meta and not meta.declined and self.level >= 4:
             day = self.now // DAY
             self._record_dealer_outcome(order["dealerId"], 1)
-            self.day_outcomes.setdefault(day, []).append(1)
+            if not meta.was_floor_bound:
+                self.day_outcomes.setdefault(day, []).append(1)
 
-            # Balanced quantile step targeting ~47% win rate on feasible requests (~380-410 won orders/week!)
+            in_war = self._is_price_war_today(day)
             _, hi = self._world_mult_bounds()
-            if meta.primary_mult >= self.world_price_mult - 0.12:
-                self.world_price_mult = min(hi, self.world_price_mult + 0.011)
-            self.day_price_adj[day] = min(0.18, self.day_price_adj.get(day, 0.0) + 0.007)
-            self.dest_price_adj[meta.delivery_place] = min(
-                0.12, self.dest_price_adj.get(meta.delivery_place, 0.0) + 0.009
-            )
+            if not in_war and not meta.was_floor_bound and meta.primary_mult >= self.world_price_mult - 0.10:
+                self.world_price_mult = min(hi, self.world_price_mult + 0.008)
+            self.day_price_adj[day] = min(0.14, self.day_price_adj.get(day, 0.0) + 0.006)
+            if not in_war and not meta.was_floor_bound:
+                self.dest_price_adj[meta.delivery_place] = min(
+                    0.09, self.dest_price_adj.get(meta.delivery_place, 0.0) + 0.007
+                )
 
-            # Regional Outage detection (08:00-18:00 within 80 km): trigger only on genuinely elevated wins!
-            if self.level >= 6 and 8 * HOUR <= (self.now % DAY) <= 18 * HOUR:
+            # Regional Outage detection (08:00-18:00 within 80 km): ignore bulk orders & floor-bound quotes, require 5/5 streak!
+            if (
+                self.level >= 6
+                and not in_war
+                and not meta.is_bulk
+                and not meta.was_floor_bound
+                and 8 * HOUR <= (self.now % DAY) <= 18 * HOUR
+            ):
                 rw = self.region_recent_wins.setdefault(meta.pickup_place, [])
                 rw.append(1)
                 if len(rw) > 6:
                     del rw[0]
-                high_win = meta.primary_mult >= (self.world_price_mult + 0.05)
-                streak = len(rw) >= 4 and sum(rw[-4:]) == 4
-                if high_win or streak:
-                    bump = 0.045 if streak else 0.025
+                streak = len(rw) >= 5 and sum(rw[-5:]) == 5
+                if streak:
                     for pid in self.net.places:
                         if self.net.straight_km(meta.pickup_place, pid) <= 80.0:
                             cur_b, cur_d = self.place_outage_boost.get(pid, (0.0, day))
-                            nb = min(0.28, (cur_b if cur_d == day else 0.0) + bump)
+                            nb = min(0.16, (cur_b if cur_d == day else 0.0) + 0.035)
                             self.place_outage_boost[pid] = (nb, day)
 
         if oid in self.requests and oid not in self.orders:
@@ -833,7 +980,8 @@ class SmartDesk:
             return
         day = self.now // DAY
         self._record_dealer_outcome(meta.dealer_id, 0)
-        self.day_outcomes.setdefault(day, []).append(0)
+        if not meta.was_floor_bound:
+            self.day_outcomes.setdefault(day, []).append(0)
 
         if self.level >= 6 and 8 * HOUR <= (self.now % DAY) <= 18 * HOUR:
             for pid in self.net.places:
@@ -844,16 +992,16 @@ class SmartDesk:
                         del rw[0]
                     cur_b, cur_d = self.place_outage_boost.get(pid, (0.0, day))
                     if cur_d == day and cur_b > 0:
-                        self.place_outage_boost[pid] = (max(0.0, cur_b - 0.045), day)
+                        self.place_outage_boost[pid] = (max(0.0, cur_b - 0.06), day)
 
         in_war = self._is_price_war_today(day)
         lo, _ = self._world_mult_bounds()
-        if not in_war and meta.primary_mult <= self.world_price_mult + 0.14:
-            self.world_price_mult = max(lo, self.world_price_mult - 0.010)
-        self.day_price_adj[day] = max(-0.14 if in_war else -0.16, self.day_price_adj.get(day, 0.0) - 0.007)
-        if not in_war:
+        if not in_war and not meta.was_floor_bound and meta.primary_mult <= self.world_price_mult + 0.10:
+            self.world_price_mult = max(lo, self.world_price_mult - 0.009)
+        self.day_price_adj[day] = max(-0.24 if in_war else -0.14, self.day_price_adj.get(day, 0.0) - 0.008)
+        if not in_war and not meta.was_floor_bound:
             self.dest_price_adj[meta.delivery_place] = max(
-                -0.10, self.dest_price_adj.get(meta.delivery_place, 0.0) - 0.008
+                -0.08, self.dest_price_adj.get(meta.delivery_place, 0.0) - 0.007
             )
 
     # ---------- Gig Posting, Single-Day Window Pinning & Chaining ----------
@@ -873,7 +1021,13 @@ class SmartDesk:
             total += self.net.minutes(places[i], places[i + 1])
         return total
 
-    def _build_stops(self, order: Order, legs: list[int], allow_windows: bool = True) -> tuple[list[StopRef], Audience]:
+    def _build_stops(
+        self,
+        order: Order,
+        legs: list[int],
+        allow_windows: bool = True,
+        allow_delivery_window: bool = True,
+    ) -> tuple[list[StopRef], Audience]:
         oid = order["id"]
         req = self.requests[oid]
         note = self._note_of(req)
@@ -909,15 +1063,25 @@ class SmartDesk:
                         if se is not None:
                             p_start = max(p_start, se)
                 p_end = p_win["to"]
+                drive_est = (
+                    self.net.minutes(pick["placeId"], deliv["placeId"])
+                    + (30 if st.needs_plates else 0)
+                    + (40 if low_ev else 0)
+                    + 25
+                )
+
                 if pick["privateAddress"]:
                     p_end = min(p_end, pick["window"]["to"])
                 elif note.pickup_hours is not None:
-                    # CRITICAL FIX: if a note narrows daily pickup hours (e.g. "Nouto arkisin 10-17" when stated is 08-18),
-                    # a multi-day [Day2 10:00, Day5 17:00] window still allows drivers at Day3 08:00 -> `closed` failure!
-                    # Pin the stop window to the next single open day's [eff_open, eff_close] so every minute in window is truly open.
-                    search_from = max(self.now + 75, p_start)
-                    for d_off in range(0, 6):
+                    # Pin dealer pickup stop window to the next single open day's [eff_o, eff_c].
+                    # Per RULES.md line 61, dealer stop windows may end after the order's window so late cars still respect note hours!
+                    search_from = max(self.now + 65, p_start)
+                    chosen_pair: Optional[tuple[int, int]] = None
+                    fallback_pair: Optional[tuple[int, int]] = None
+                    for d_off in range(0, 7):
                         d_idx = (search_from // DAY) + d_off
+                        if d_idx > 10:
+                            break
                         st_ph = site_day_hours(pick.get("hours"), d_idx)
                         if st_ph is None:
                             continue
@@ -927,108 +1091,228 @@ class SmartDesk:
                         else:
                             eff_o, eff_c = st_ph
                         cand_s = max(p_start, d_idx * DAY + eff_o)
-                        cand_e = min(p_end, d_idx * DAY + eff_c)
-                        if cand_e >= max(cand_s + 30, self.now + 90):
-                            p_start, p_end = cand_s, cand_e
-                            break
+                        cand_e = d_idx * DAY + eff_c
+                        if note.pickup_before is not None and note.pickup_before >= self.now + 90:
+                            cand_e = min(cand_e, note.pickup_before)
+                        if cand_e >= max(cand_s + 35, self.now + 85):
+                            if fallback_pair is None:
+                                fallback_pair = (cand_s, cand_e)
+                            # If remaining time today is too short (< 130m) and another open day exists before deadline, prefer when enough time exists
+                            if cand_e >= self.now + 130 or (d_idx + 1) * DAY > order["deadline"]:
+                                chosen_pair = (cand_s, cand_e)
+                                break
+                    if chosen_pair is not None:
+                        p_start, p_end = chosen_pair
+                    elif fallback_pair is not None:
+                        p_start, p_end = fallback_pair
+                else:
+                    # Dealer site without daily pickup_hours narrowing: if p_start moved later (e.g. not_ready/closed/note), ensure p_end stays open
+                    if p_start > pick["window"]["from"] and p_end < max(p_start + 90, self.now + 150):
+                        p_end = max(p_end, p_start + 2 * DAY, self.now + 2 * DAY)
 
-                if p_start <= p_end and p_end > self.now + 25 and (p_start > pick["window"]["from"] or p_end < pick["window"]["to"]):
+                if p_start <= p_end and p_end > self.now + 25 and (
+                    p_start > pick["window"]["from"] or p_end != pick["window"]["to"]
+                ):
                     p_stop["window"] = {"from": int(p_start), "to": int(p_end)}
 
-                d_base: TimeWindow = {"from": deliv["window"]["from"], "to": max(deliv["window"]["from"], order["deadline"])}
-                d_win = apply_note_to_window(note, d_base, "delivery")
-                if note.delivery_hours is not None and not deliv["privateAddress"]:
-                    # Ensure single-day or final-day delivery doesn't exceed note's closing hour
-                    p_day = (p_start // DAY)
-                    drive_est = self.net.minutes(pick["placeId"], deliv["placeId"]) + 30
-                    arr_day = (max(self.now, p_start) + drive_est) // DAY
-                    st_dh = site_day_hours(deliv.get("hours"), arr_day)
-                    if st_dh is not None and (arr_day % 7) < 5:
-                        eff_do = max(st_dh[0], note.delivery_hours[0] if note.delivery_hours[0] > 0 else st_dh[0])
-                        eff_dc = min(st_dh[1], note.delivery_hours[1])
-                        cand_ds = max(d_win["from"], arr_day * DAY + eff_do)
-                        cand_de = min(d_win["to"], arr_day * DAY + eff_dc)
-                        if cand_de >= max(cand_ds + 30, max(self.now, p_start) + drive_est + 20):
-                            d_win = {"from": cand_ds, "to": cand_de}
+                d_base: TimeWindow = {
+                    "from": deliv["window"]["from"],
+                    "to": max(deliv["window"]["from"], order["deadline"]),
+                }
+                earliest_arr = max(self.now + 40, p_start) + drive_est
+                if allow_delivery_window and self.now < order["lastPickupAt"] - 90:
+                    d_win = apply_note_to_window(note, d_base, "delivery")
+                    if note.delivery_hours is not None and not deliv["privateAddress"]:
+                        arr_day = earliest_arr // DAY
+                        st_dh = site_day_hours(deliv.get("hours"), arr_day)
+                        if st_dh is not None and (arr_day % 7) < 5:
+                            eff_do = max(st_dh[0], note.delivery_hours[0] if note.delivery_hours[0] > 0 else st_dh[0])
+                            eff_dc = min(st_dh[1], note.delivery_hours[1])
+                            cand_ds = max(d_win["from"], arr_day * DAY + eff_do)
+                            cand_de = min(d_win["to"], arr_day * DAY + eff_dc)
+                            if cand_de >= max(cand_ds + 30, earliest_arr + 20):
+                                d_win = {"from": cand_ds, "to": cand_de}
 
-                if d_win["from"] <= d_win["to"] and d_win["to"] > self.now + 45 and (d_win["from"] > d_base["from"] or d_win["to"] < d_base["to"]):
-                    d_stop["window"] = {"from": int(d_win["from"]), "to": int(d_win["to"])}
+                    if (
+                        d_win["from"] <= d_win["to"]
+                        and d_win["to"] >= max(self.now + 60, earliest_arr + 20)
+                        and (d_win["from"] > d_base["from"] or d_win["to"] < d_base["to"])
+                    ):
+                        d_stop["window"] = {"from": int(d_win["from"]), "to": int(d_win["to"])}
+
+                # Crucial fix for RULES.md lines 61 & 73: if p_stop has a custom window that pushes earliest arrival past
+                # the order's stated delivery window (while the world still considers the stated window active),
+                # extend d_stop["window"]["to"] explicitly so drivers can still book the gig!
+                if "window" in p_stop and "window" not in d_stop and not deliv["privateAddress"]:
+                    st_del_h = site_day_hours(deliv.get("hours"), order["deadline"] // DAY)
+                    stated_del_end = (
+                        min(order["deadline"], (order["deadline"] // DAY) * DAY + st_del_h[1])
+                        if st_del_h is not None
+                        else order["deadline"]
+                    )
+                    if earliest_arr + 15 > stated_del_end:
+                        ext_to = max(order["deadline"] + DAY, p_end + drive_est + DAY)
+                        d_stop["window"] = {"from": int(deliv["window"]["from"]), "to": int(ext_to)}
 
             stops.extend([p_stop, d_stop])
 
         return stops, audience
 
     def _sweep_aging_orders(self) -> None:
-        """Proactively boosts unbooked gigs at 5.5 hours before lastPickupAt so drivers still have transit time."""
+        """Two-stage proactive rescue (7h / 75m age -> Stage 1; 4h -> Stage 2 urgent) plus viewer direct-offer sniping."""
+        # 1. Snipe any active viewers on open unbooked gigs immediately via direct offers
+        if self.level >= 3:
+            for gid, act in list(self.posts.items()):
+                if gid in self.booked or not self.gig_viewers.get(gid):
+                    continue
+                if self.gig_open_offers.get(gid, 0) >= 3:
+                    continue
+                first_oid = act["stops"][0]["orderId"]
+                self._maybe_send_offers(gid, act, urgent=(first_oid in self.urgent))
+
+        # 2. Two-stage aging & pre-deadline rescue
+        tod = self.now % DAY
+        is_daytime = 7 * HOUR + 30 <= tod <= 20 * HOUR + 30
         for oid, o in list(self.orders.items()):
-            if o["status"] != "waiting" or oid in self.urgent or oid in self.early_boosted:
-                continue
-            rem = o["lastPickupAt"] - self.now
-            if rem > 330 or rem < -60:
+            if o["status"] != "waiting":
                 continue
             gids = self.gigs_of(oid)
             if any(g in self.booked for g in gids):
                 continue
-            self.early_boosted.add(oid)
-            if self.level == 1:
-                self.urgent.add(oid)
-                if self._withdraw_order_gigs(oid):
-                    self.post_order_legs(o, self._undelivered(o), allow_windows=False, allow_chain=False)
+            rem = o["lastPickupAt"] - self.now
+            if rem < -120:
                 continue
-            for gid in list(gids):
-                act = self.posts.get(gid)
-                if not act or gid in self.booked:
+
+            req = self.requests.get(oid)
+            p_place = o["legs"][0]["pickup"]["placeId"]
+            aud: Audience = {
+                "experienced": any(l["car"]["premium"] for l in o["legs"]),
+                "manualLicence": False,
+            }
+            local_notif = self.net.matching_notif_count(p_place, aud, region=False)
+            age = max((self.now - self.gig_posted_at.get(g, self.now) for g in gids), default=0)
+
+            # Stage 2: 3.5h before lastPickupAt (30m BEFORE deadline_close!) -> escalate to full urgent schedule
+            if rem <= 210 and oid not in self.urgent:
+                self.urgent.add(oid)
+                self.early_boosted.add(oid)
+                if self.level == 1:
+                    if self._withdraw_order_gigs(oid):
+                        self.post_order_legs(
+                            o, self._undelivered(o), allow_windows=True, allow_delivery_window=False, allow_chain=False
+                        )
                     continue
-                order_set = list(dict.fromkeys(s["orderId"] for s in act["stops"]))
-                if len(order_set) > 1:
-                    self.outbox.append({"type": "withdraw", "gigId": gid})
-                    self.posts.pop(gid, None)
-                    for s in act["stops"]:
-                        self.leg_gigs.get(s["orderId"], {}).pop(s["leg"], None)
-                    for oid2 in order_set:
-                        o2 = self.orders.get(oid2)
-                        if o2 and o2["status"] != "cancelled":
-                            self.post_order_legs(o2, self._undelivered(o2), allow_windows=False, allow_chain=False)
+                for gid in list(gids):
+                    act = self.posts.get(gid)
+                    if not act or gid in self.booked:
+                        continue
+                    order_set = list(dict.fromkeys(s["orderId"] for s in act["stops"]))
+                    if len(order_set) > 1:
+                        self.outbox.append({"type": "withdraw", "gigId": gid})
+                        self.posts.pop(gid, None)
+                        for s in act["stops"]:
+                            self.leg_gigs.get(s["orderId"], {}).pop(s["leg"], None)
+                        for oid2 in order_set:
+                            o2 = self.orders.get(oid2)
+                            if o2 and o2["status"] != "cancelled":
+                                self.post_order_legs(
+                                    o2,
+                                    self._undelivered(o2),
+                                    allow_windows=True,
+                                    allow_delivery_window=False,
+                                    allow_chain=False,
+                                )
+                        continue
+                    cars = sum(1 for s in act["stops"] if s["kind"] == "pickup")
+                    urg_sched = self._schedule_for(o, cars, force_urgent=True)
+                    self.outbox.append({"type": "reprice", "gigId": gid, "schedule": urg_sched})
+                    act["schedule"] = urg_sched
+                    self._maybe_send_offers(gid, act, urgent=True)
+                continue
+
+            # Stage 1: 5.5h before lastPickupAt (or 6.5h in thin towns <= 2 local drivers)
+            if oid not in self.urgent and oid not in self.early_boosted:
+                trigger_stage1 = (rem <= 330) or (rem <= 390 and local_notif <= 2)
+                if not trigger_stage1:
+                    # If sitting unbooked >= 45m during daytime with plenty of time left, send direct offers without raising public fee!
+                    if is_daytime and age >= 45:
+                        for gid in list(gids):
+                            act = self.posts.get(gid)
+                            if act and gid not in self.booked:
+                                self._maybe_send_offers(gid, act, urgent=False)
                     continue
-                cars = sum(1 for s in act["stops"] if s["kind"] == "pickup")
-                mid_sched = self._monotonic_steps(
-                    self._estimate_fulfillment_cost(self.requests[oid], self._note_of(self.requests[oid]))[0]
-                    * (cars / max(1, len(o["legs"]))),
-                    [1.18, 1.34, 1.52, 1.72],
-                    step_mins=35,
-                )
-                self.outbox.append({"type": "reprice", "gigId": gid, "schedule": mid_sched})
-                act["schedule"] = mid_sched
-                self._maybe_send_offers(gid, act, urgent=True)
+                self.early_boosted.add(oid)
+                if self.level == 1:
+                    self.urgent.add(oid)
+                    if self._withdraw_order_gigs(oid):
+                        self.post_order_legs(
+                            o, self._undelivered(o), allow_windows=True, allow_delivery_window=False, allow_chain=False
+                        )
+                    continue
+                for gid in list(gids):
+                    act = self.posts.get(gid)
+                    if not act or gid in self.booked:
+                        continue
+                    order_set = list(dict.fromkeys(s["orderId"] for s in act["stops"]))
+                    if len(order_set) > 1:
+                        self.outbox.append({"type": "withdraw", "gigId": gid})
+                        self.posts.pop(gid, None)
+                        for s in act["stops"]:
+                            self.leg_gigs.get(s["orderId"], {}).pop(s["leg"], None)
+                        for oid2 in order_set:
+                            o2 = self.orders.get(oid2)
+                            if o2 and o2["status"] != "cancelled":
+                                self.post_order_legs(
+                                    o2,
+                                    self._undelivered(o2),
+                                    allow_windows=True,
+                                    allow_delivery_window=False,
+                                    allow_chain=False,
+                                )
+                        continue
+                    cars = sum(1 for s in act["stops"] if s["kind"] == "pickup")
+                    est_base = (
+                        self._estimate_fulfillment_cost(req, self._note_of(req))[0] * (cars / max(1, len(o["legs"])))
+                        if req
+                        else 15000.0
+                    )
+                    mid_sched = self._monotonic_steps(est_base, [1.15, 1.28, 1.44], step_mins=35)
+                    self.outbox.append({"type": "reprice", "gigId": gid, "schedule": mid_sched})
+                    act["schedule"] = mid_sched
+                    self._maybe_send_offers(gid, act, urgent=True)
 
     def _schedule_for(self, order: Order, legs_count: int, force_urgent: bool = False) -> list[FeeStep]:
         oid = order["id"]
         req = self.requests[oid]
         note = self._note_of(req)
-        est_total, _, _, _ = self._estimate_fulfillment_cost(req, note)
+        est_total, aud, _, _ = self._estimate_fulfillment_cost(req, note)
         base = est_total * (legs_count / max(1, len(order["legs"])))
 
+        p_place = order["legs"][0]["pickup"]["placeId"]
+        local_notif = self.net.matching_notif_count(p_place, aud, region=False)
+        if local_notif <= 1:
+            base *= 1.05
+
         time_to_last = order["lastPickupAt"] - self.now
-        is_urg = force_urgent or (oid in self.urgent) or (time_to_last <= 240)
+        is_urg = force_urgent or (oid in self.urgent) or (time_to_last <= 210)
         is_late = self.now >= order["lastPickupAt"]
 
         if self.level == 1:
-            # Level 1 allows only 1 flat fee step (no reprice, no offer), so open right near typical clearing fee!
             ref_part = req["referenceFeeCents"] * (legs_count / max(1, len(order["legs"])))
-            flat_base = max(base, ref_part * 0.96)
-            mult = 1.45 if is_urg else 1.00
+            flat_base = max(base, ref_part * 0.98)
+            mult = 1.45 if is_urg else 1.02
             return [{"at": int(self.now), "feeCents": max(100, int(round(flat_base * mult)))}]
 
         if is_late:
-            return self._monotonic_steps(base, [1.40, 1.65, 1.90, 2.20], step_mins=50)
+            return self._monotonic_steps(base, [1.45, 1.70, 1.98, 2.25], step_mins=45)
 
         if is_urg:
-            steps = [1.36, 1.56, 1.80, 2.08, 2.38]
+            steps = [1.36, 1.56, 1.80, 2.06]
             return self._monotonic_steps(base, steps, step_mins=30)
 
-        # Reliable clearing schedule: opens sharp so cheap drivers take it immediately, steps high enough so 95%+ deliver on time!
-        steps = [0.98, 1.08, 1.19, 1.32] if self.shortage_Mode else [0.95, 1.03, 1.12, 1.22]
-        interval = 70 if time_to_last > 480 else 45
+        # Flatter 3-step opening schedule opens sharp without teaching drivers to hold out for 1.32x raises!
+        steps = [0.95, 1.02, 1.10] if self.shortage_Mode else [0.91, 0.97, 1.04]
+        interval = 65 if time_to_last > 450 else 45
         return self._monotonic_steps(base, steps, step_mins=interval)
 
     def _monotonic_steps(
@@ -1046,10 +1330,12 @@ class SmartDesk:
         return out
 
     def _try_chain_with_open_gig(self, new_order: Order, new_stops: list[StopRef], new_aud: Audience) -> bool:
-        """Pairs two compatible 1-leg orders (checking BOTH A->B and B->A directions!) into a cheap 2-car chain."""
-        if self.level < 3 or len(new_order["legs"]) != 1 or new_order["id"] in self.urgent:
+        """Pairs two compatible 1-leg orders in non-shortage worlds without burning scarce notifications in shortage mode."""
+        # In shortage mode (Levels 7-8), withdrawing an open gig destroys its one-time push notification and shrinks
+        # the eligible driver pool. Let drivers chain naturally via finisher direct offers instead!
+        if self.shortage_Mode or self.level < 3 or len(new_order["legs"]) != 1 or new_order["id"] in self.urgent:
             return False
-        if new_order["lastPickupAt"] - self.now < 450:
+        if new_order["lastPickupAt"] - self.now < 480:
             return False
 
         b_pick = new_order["legs"][0]["pickup"]["placeId"]
@@ -1060,7 +1346,7 @@ class SmartDesk:
         best_match: Optional[tuple[float, str, Order, list[StopRef], Audience]] = None
 
         for gid, act in list(self.posts.items()):
-            if gid in self.booked or len(act["stops"]) != 2:
+            if gid in self.booked or len(act["stops"]) != 2 or self.gig_viewers.get(gid):
                 continue
             oid_a = act["stops"][0]["orderId"]
             if oid_a == new_order["id"] or oid_a in self.urgent:
@@ -1070,7 +1356,7 @@ class SmartDesk:
                 continue
             if self.leg_gigs.get(oid_a, {}).get(0) != gid:
                 continue
-            if ord_a["lastPickupAt"] - self.now < 450:
+            if ord_a["lastPickupAt"] - self.now < 480:
                 continue
             if ord_a["legs"][0]["pickup"]["privateAddress"] or ord_a["legs"][0]["delivery"]["privateAddress"]:
                 continue
@@ -1082,19 +1368,18 @@ class SmartDesk:
                 "manualLicence": bool(act["audience"]["manualLicence"] or new_aud["manualLicence"]),
             }
 
-            # Try both directions: (ord_a -> new_order) AND (new_order -> ord_a)
             for first_o, second_o, first_stops, second_stops, f_pick, f_del, s_pick, s_del in (
                 (ord_a, new_order, list(act["stops"]), list(new_stops), a_pick, a_del, b_pick, b_del),
                 (new_order, ord_a, list(new_stops), list(act["stops"]), b_pick, b_del, a_pick, a_del),
             ):
                 conn = self.net.minutes(f_del, s_pick)
-                if conn > 40:
+                if conn > 30:
                     continue
                 cand_stops = first_stops + second_stops
                 total_road = self._stops_road_minutes(cand_stops)
-                if total_road > 630:
+                if total_road > 480:
                     continue
-                if self.net.matching_notif_count(f_pick, comb_aud, region=True) < 2:
+                if self.net.matching_notif_count(f_pick, comb_aud, region=True) < 4:
                     continue
 
                 f_ready = max(self.now + 30, first_o["legs"][0]["pickup"]["window"]["from"])
@@ -1105,10 +1390,9 @@ class SmartDesk:
                 s_ready = second_o["legs"][0]["pickup"]["window"]["from"]
                 if "window" in second_stops[0]:
                     s_ready = max(s_ready, second_stops[0]["window"]["from"])
-                if f_arr > second_o["lastPickupAt"] - 160 or s_ready > f_arr + 150:
+                if f_arr > second_o["lastPickupAt"] - 180 or s_ready > f_arr + 120:
                     continue
 
-                # Prefer true round-trips (s_del near f_pick) because driver needs ZERO public transit tickets!
                 return_gap_km = self.net.straight_km(s_del, f_pick)
                 quality = 100.0 - conn * 1.2 - return_gap_km * 0.25
                 if best_match is None or quality > best_match[0]:
@@ -1123,8 +1407,7 @@ class SmartDesk:
         s_del = self.orders[combined_stops[-1]["orderId"]]["legs"][0]["delivery"]["placeId"]
         is_round_trip = self.net.straight_km(f_pick, s_del) <= 35.0
 
-        # Round-trip eliminates BOTH transit tickets -> 0.89x sum; corridor eliminates 1 ticket -> 0.93x sum!
-        chain_disc = 0.89 if is_round_trip else 0.93
+        chain_disc = 0.90 if is_round_trip else 0.94
         sched_a = self._schedule_for(ord_a, 1)
         sched_b = self._schedule_for(new_order, 1)
         n_steps = min(len(sched_a), len(sched_b))
@@ -1153,14 +1436,32 @@ class SmartDesk:
         )
         return True
 
-    def post_order_legs(self, order: Order, legs: list[int], allow_windows: bool = True, allow_chain: bool = True) -> None:
+    def post_order_legs(
+        self,
+        order: Order,
+        legs: list[int],
+        allow_windows: bool = True,
+        allow_delivery_window: bool = True,
+        allow_chain: bool = True,
+    ) -> None:
         if not legs:
             return
-        stops, audience = self._build_stops(order, legs, allow_windows=allow_windows)
+        stops, audience = self._build_stops(
+            order,
+            legs,
+            allow_windows=allow_windows,
+            allow_delivery_window=allow_delivery_window,
+        )
 
         if len(legs) > 1 and self._stops_road_minutes(stops) > 715:
             for lg in legs:
-                self.post_order_legs(order, [lg], allow_windows=allow_windows, allow_chain=False)
+                self.post_order_legs(
+                    order,
+                    [lg],
+                    allow_windows=allow_windows,
+                    allow_delivery_window=allow_delivery_window,
+                    allow_chain=False,
+                )
             return
 
         if len(legs) == 1 and allow_chain and self._try_chain_with_open_gig(order, stops, audience):
@@ -1169,7 +1470,7 @@ class SmartDesk:
         sched = self._schedule_for(order, len(legs))
         self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": sched})
 
-    # ---------- Direct Offers (Finishers, Homebound Hub Drivers & Urgent Rescue) ----------
+    # ---------- Direct Offers (Finishers, Homebound Hub Drivers, Viewers & Urgent Rescue) ----------
     def _maybe_send_offers(self, gig_id: str, action: PostAction, urgent: bool = False) -> None:
         if self.level < 3 or gig_id in self.booked:
             return
@@ -1191,6 +1492,7 @@ class SmartDesk:
         p_place = o_first["legs"][first_stop["leg"]]["pickup"]["placeId"]
         d_place = o_last["legs"][last_stop["leg"]]["delivery"]["placeId"]
         lead_mins = max(0, o_first["lastPickupAt"] - self.now)
+        viewers = self.gig_viewers.get(gig_id, set())
 
         candidates = self.net.candidate_drivers(
             p_place,
@@ -1200,14 +1502,15 @@ class SmartDesk:
             self.active_drivers_today,
             self.now,
             lead_mins=lead_mins,
+            gig_viewers=viewers,
+            urgent=urgent,
         )
         if not candidates:
             return
 
         local_cnt = self.net.matching_notif_count(p_place, action["audience"], region=False)
-        top_score, _, top_kind = candidates[0]
-        # Even in busy towns, ALWAYS snipe finishers & active homebound drivers because they get NO push notification and take cheaper fees!
-        if not urgent and top_kind == "local" and local_cnt >= 5 and top_score < 32.0:
+        top_score, top_did, top_kind = candidates[0]
+        if not urgent and top_kind == "local" and top_did not in viewers and local_cnt >= 6 and top_score < 32.0:
             return
 
         cur_fee = action["schedule"][0]["feeCents"]
@@ -1221,7 +1524,7 @@ class SmartDesk:
         for score, did, c_kind in candidates:
             if sent >= max_to_send:
                 break
-            if not urgent and c_kind == "local" and local_cnt >= 5 and score < 32.0:
+            if not urgent and c_kind == "local" and did not in viewers and local_cnt >= 6 and score < 32.0:
                 continue
             if (gig_id, did) in self.offered_pairs:
                 continue
@@ -1229,13 +1532,13 @@ class SmartDesk:
                 continue
 
             if urgent:
-                mult = 1.08
+                mult = 1.06
             elif c_kind == "finisher":
-                mult = 0.92
+                mult = 0.91
             elif c_kind == "homebound":
-                mult = 0.94
+                mult = 0.93
             else:
-                mult = 0.99
+                mult = 0.98
             offer_fee = max(100, int(round(cur_fee * mult)))
             last_fee = offer_fee
 
@@ -1258,6 +1561,10 @@ class SmartDesk:
         self.booked.add(gig_id)
         self.gig_driver[gig_id] = driver_id
         self.active_drivers_today.add(driver_id)
+        self.bookings_today += 1
+        self.outbox = [
+            a for a in self.outbox if not (a.get("gigId") == gig_id and a["type"] in ("reprice", "withdraw", "offer"))
+        ]
 
         act = self.posts.get(gig_id)
         if not act:
@@ -1269,7 +1576,8 @@ class SmartDesk:
             first_s = act["stops"][0]
             o_first = self.orders.get(first_s["orderId"])
             p_from = o_first["legs"][first_s["leg"]]["pickup"]["window"]["from"] if o_first else self.now
-            est_fin = max(self.now, p_from) + self._stops_road_minutes(act["stops"]) + 45
+            win_from = first_s["window"]["from"] if "window" in first_s else 0
+            est_fin = max(self.now, p_from, win_from) + self._stops_road_minutes(act["stops"]) + 45
             self.finishing_places[driver_id] = (dest_place, est_fin)
 
             # Immediately check if we already have an open unbooked gig starting near dest_place around est_fin!
@@ -1281,22 +1589,24 @@ class SmartDesk:
                 if not fo:
                     continue
                 op_pick = fo["legs"][fs["leg"]]["pickup"]["placeId"]
-                if self.net.straight_km(dest_place, op_pick) <= 40.0 and est_fin <= fo["lastPickupAt"] - 60:
-                    self._maybe_send_offers(open_gid, open_act, urgent=False)
+                if self.net.straight_km(dest_place, op_pick) <= 45.0 and est_fin <= fo["lastPickupAt"] - 50:
+                    self._maybe_send_offers(open_gid, open_act, urgent=(fo["id"] in self.urgent))
 
-        # Online update of empirical clearing fee multiplier (excluding emergency rescues & 2-car discounted chains)
+        # Online update of empirical clearing fee multiplier (excluding emergency/aging boosts & 2-car discounted chains)
         order_ids = list(dict.fromkeys(s["orderId"] for s in act["stops"]))
-        if len(order_ids) == 1 and order_ids[0] not in self.urgent:
+        if len(order_ids) == 1 and order_ids[0] not in self.urgent and order_ids[0] not in self.early_boosted:
             oid = order_ids[0]
             req = self.requests.get(oid)
             ord_o = self.orders.get(oid)
             if req and ord_o:
                 cars = sum(1 for s in act["stops"] if s["kind"] == "pickup")
-                ref_sum = req["referenceFeeCents"] * (cars / max(1, len(ord_o["legs"])))
-                if ref_sum > 0:
-                    obs_mult = fee_cents / ref_sum
-                    if 0.60 <= obs_mult <= 1.85:
-                        self.fee_mult_est = 0.92 * self.fee_mult_est + 0.08 * obs_mult
+                est_tot, _, _, _ = self._estimate_fulfillment_cost(req, self._note_of(req))
+                est_base = est_tot * (cars / max(1, len(ord_o["legs"])))
+                if est_base > 0:
+                    ratio = fee_cents / est_base
+                    target_mult = self.fee_mult_est * max(0.88, min(1.16, ratio))
+                    lo_f, hi_f = (0.92, 1.14) if self.shortage_Mode else (0.86, 1.06)
+                    self.fee_mult_est = max(lo_f, min(hi_f, 0.94 * self.fee_mult_est + 0.06 * target_mult))
 
     def _on_gig_lost_driver(self, gig_id: str, driver_id: str, kind: str) -> None:
         self.booked.discard(gig_id)
@@ -1320,11 +1630,19 @@ class SmartDesk:
                 self.leg_gigs.get(s["orderId"], {}).pop(s["leg"], None)
             self.posts.pop(gig_id, None)
             for o in orders_here:
-                self.post_order_legs(o, self._undelivered(o), allow_chain=False)
+                self.post_order_legs(
+                    o,
+                    self._undelivered(o),
+                    allow_windows=True,
+                    allow_delivery_window=(self.now < o["lastPickupAt"] - 90),
+                    allow_chain=False,
+                )
             return
 
         primary = orders_here[0]
         force_urg = (min_slack <= 270) or (kind == "no_show")
+        if force_urg:
+            self.urgent.add(primary["id"])
         cars = sum(1 for s in act["stops"] if s["kind"] == "pickup")
         new_sched = self._schedule_for(primary, cars, force_urgent=force_urg)
         if new_sched:
@@ -1372,7 +1690,13 @@ class SmartDesk:
                 ord_obj = self.orders.get(oid)
                 if ord_obj:
                     self.urgent.add(oid)
-                    self.post_order_legs(ord_obj, self._undelivered(ord_obj), allow_chain=False)
+                    self.post_order_legs(
+                        ord_obj,
+                        self._undelivered(ord_obj),
+                        allow_windows=True,
+                        allow_delivery_window=False,
+                        allow_chain=False,
+                    )
             self._log(
                 "recover",
                 f"Free-Released Late Driver on {gig_id}",
@@ -1395,12 +1719,31 @@ class SmartDesk:
             if o and o["status"] != "cancelled":
                 missing = [i for i in self._undelivered(o) if i not in self.leg_gigs.get(oid, {})]
                 if missing:
-                    # Keep narrowed daily hours if we still have time before lastPickupAt; otherwise clear windows so late cars still deliver!
-                    req = self.requests.get(oid)
-                    note = self._note_of(req) if req else ParsedNote()
-                    keep_win = bool(note.pickup_hours and self.now < o["lastPickupAt"] - 120)
-                    self.post_order_legs(o, missing, allow_windows=keep_win, allow_chain=False)
-                    self._log("recover", f"Reposted Expired Gig for {oid}", "Advanced window for next open day" if keep_win else "Cleared custom stop windows", "warn")
+                    # Always preserve pickup windows (so notes like `nouto 9-14` advance to the next open day instead of failing closed!)
+                    keep_deliv_win = self.now < o["lastPickupAt"] - 90
+                    self.post_order_legs(
+                        o,
+                        missing,
+                        allow_windows=True,
+                        allow_delivery_window=keep_deliv_win,
+                        allow_chain=False,
+                    )
+                    self._log(
+                        "recover",
+                        f"Reposted Expired Gig for {oid}",
+                        "Advanced pickup window to next open day",
+                        "warn",
+                    )
+
+    def _on_picked_up(self, order_id: str, leg: int, at: int) -> None:
+        self.picked_up_legs.add((order_id, leg))
+        o = self.orders.get(order_id)
+        if not o or leg >= len(o["legs"]):
+            return
+        l_obj = o["legs"][leg]
+        rem_drive = self.net.minutes(l_obj["pickup"]["placeId"], l_obj["delivery"]["placeId"])
+        if at + rem_drive > o["deadline"]:
+            self.doomed_late_orders.add(order_id)
 
     def _record_failure(self, order_id: str, leg: int, reason: str, at: int) -> None:
         o = self.orders.get(order_id)
@@ -1427,8 +1770,16 @@ class SmartDesk:
                     d_idx = (next_try // DAY) + d_off
                     sh = site_day_hours(pick.get("hours"), d_idx)
                     if sh is not None:
-                        eff_o = max(sh[0], note.pickup_hours[0] if (note.pickup_hours and note.pickup_hours[0] > 0 and (d_idx % 7) < 5) else sh[0])
-                        eff_c = min(sh[1], note.pickup_hours[1] if (note.pickup_hours and (d_idx % 7) < 5) else sh[1])
+                        eff_o = max(
+                            sh[0],
+                            note.pickup_hours[0]
+                            if (note.pickup_hours and note.pickup_hours[0] > 0 and (d_idx % 7) < 5)
+                            else sh[0],
+                        )
+                        eff_c = min(
+                            sh[1],
+                            note.pickup_hours[1] if (note.pickup_hours and (d_idx % 7) < 5) else sh[1],
+                        )
                         cand_open = d_idx * DAY + eff_o
                         cand_close = d_idx * DAY + eff_c
                         if next_try <= cand_close - 45:
@@ -1442,7 +1793,13 @@ class SmartDesk:
         o = self.orders[order_id]
         self.leg_gigs.get(order_id, {}).pop(leg, None)
         self._record_failure(order_id, leg, reason, self.now)
-        self.post_order_legs(o, [leg], allow_windows=(reason in ("not_ready", "closed")), allow_chain=False)
+        self.post_order_legs(
+            o,
+            [leg],
+            allow_windows=True,
+            allow_delivery_window=(self.now < o["lastPickupAt"] - 90),
+            allow_chain=False,
+        )
         self._log("recover", f"Retrying {order_id} leg {leg} ({reason})", "Updated constraints & reposted", "bad")
 
     def _on_payment_release(self, order_id: str, leg: int) -> None:
@@ -1473,6 +1830,7 @@ class SmartDesk:
         self.orders.pop(order_id, None)
         self.leg_gigs.pop(order_id, None)
         self.urgent.discard(order_id)
+        self.doomed_late_orders.discard(order_id)
         for cg in gigs:
             gid, outcome = cg["gigId"], cg["outcome"]
             act = self.posts.get(gid)
@@ -1488,11 +1846,13 @@ class SmartDesk:
                             self.post_order_legs(other_o, self._undelivered(other_o), allow_chain=False)
 
     def _on_delivered(self, order_id: str, leg: int, at: int) -> None:
+        self.picked_up_legs.add((order_id, leg))
         self.leg_gigs.get(order_id, {}).pop(leg, None)
         if order_id in self.orders:
             self.orders[order_id]["deliveredAt"][leg] = at
             if all(d is not None for d in self.orders[order_id]["deliveredAt"]):
                 self.orders[order_id]["status"] = "delivered"
+                self.doomed_late_orders.discard(order_id)
 
     def _on_deadline_close(self, order_id: str) -> None:
         o = self.orders.get(order_id)
@@ -1505,13 +1865,16 @@ class SmartDesk:
         if not gids:
             missing = self._undelivered(o)
             if missing:
-                self.post_order_legs(o, missing, allow_windows=False, allow_chain=False)
+                self.post_order_legs(
+                    o, missing, allow_windows=True, allow_delivery_window=False, allow_chain=False
+                )
             return
 
         if self.level == 1:
-            # Level 1 prohibits `reprice`, so withdraw & repost at urgent fee!
             if self._withdraw_order_gigs(order_id):
-                self.post_order_legs(o, self._undelivered(o), allow_windows=False, allow_chain=False)
+                self.post_order_legs(
+                    o, self._undelivered(o), allow_windows=True, allow_delivery_window=False, allow_chain=False
+                )
             return
 
         for gid in list(gids):
@@ -1529,7 +1892,13 @@ class SmartDesk:
                 for oid2 in order_set:
                     o2 = self.orders.get(oid2)
                     if o2 and o2["status"] != "cancelled":
-                        self.post_order_legs(o2, self._undelivered(o2), allow_windows=False, allow_chain=False)
+                        self.post_order_legs(
+                            o2,
+                            self._undelivered(o2),
+                            allow_windows=True,
+                            allow_delivery_window=False,
+                            allow_chain=False,
+                        )
                 continue
 
             cars = sum(1 for s in act["stops"] if s["kind"] == "pickup")
@@ -1567,6 +1936,9 @@ class SmartDesk:
         self.leg_gigs.pop(order_id, None)
         for g in gids:
             self.posts.pop(g, None)
+            self.outbox = [
+                a for a in self.outbox if not (a.get("gigId") == g and a["type"] in ("reprice", "withdraw", "offer"))
+            ]
             self.outbox.append({"type": "withdraw", "gigId": g})
         return True
 
@@ -1593,7 +1965,8 @@ class SmartDesk:
                 is_urg = first_oid in self.urgent
                 self._maybe_send_offers(gid, action, urgent=is_urg)
             else:
-                had_win = any("window" in s for s in action["stops"])
+                had_deliv_win = any(s["kind"] == "delivery" and "window" in s for s in action["stops"])
+                had_any_win = any("window" in s for s in action["stops"])
                 pickups_cnt = sum(1 for s in action["stops"] if s["kind"] == "pickup")
                 if pickups_cnt > 1:
                     seen: set[tuple[str, int]] = set()
@@ -1604,8 +1977,17 @@ class SmartDesk:
                         seen.add(key)
                         o = self.orders.get(s["orderId"])
                         if o and o["deliveredAt"][s["leg"]] is None:
-                            self.post_order_legs(o, [s["leg"]], allow_windows=False, allow_chain=False)
-                elif had_win:
+                            self.post_order_legs(
+                                o, [s["leg"]], allow_windows=True, allow_delivery_window=False, allow_chain=False
+                            )
+                elif had_deliv_win:
+                    # Strip delivery window first while preserving critical pickup windows (`nouto 9-14`, etc.)!
+                    keep_pickup_stops: list[StopRef] = [
+                        ({k: v for k, v in s.items() if k != "window"} if s["kind"] == "delivery" else s)  # type: ignore[misc]
+                        for s in action["stops"]
+                    ]
+                    self.outbox.append({**action, "stops": keep_pickup_stops})
+                elif had_any_win:
                     clean_stops: list[StopRef] = [
                         {k: v for k, v in s.items() if k != "window"}  # type: ignore[misc]
                         for s in action["stops"]

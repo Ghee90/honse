@@ -12,8 +12,9 @@ DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 # --- Boolean car / stop flags ---
 PLATES_POS = re.compile(
-    r"ilman\s+kilpi|ei\s+kilpi|kilpiä\s+ei|puuttuu\s+kilv|kilvet\s+puuttu|kilvet\s+irrot|rekisterikilvet\s+irrot"
-    r"|koekilv|siirtokilv|tarrakilv|rekisteröimät|kilvet\s+mukaan|tuo\s+kilv|ota\s+kilv"
+    r"ilman\s+kilpi|ei\s+kilpi|kilpiä\s+ei|puuttuu\s+kilv|kilvet\s+puuttu|kilvet\s+ir+ot|rekisterikilvet\s+ir+ot"
+    r"|ei\s+rekkar\w*|ilman\s+rekkar\w*|rekkar\w*\s+puuttu|rekkar\w*\s+ir+ot"
+    r"|koek?ilv|siirtokilv|tarrakilv|rekisteröimät|kilvet\s+mukaan|tuo\s+kilv|ota\s+kilv"
     r"|utan\s+skylt|inga\s+skylt|saknar\s+skylt|skyltar\w*\s+borttag|prövningsskylt|provskylt|transportskylt|oregistrerad|medtag\s+skylt|ta\s+med\s+skylt"
     r"|no\s+plates|without\s+plates|missing\s+plates|plates\s+removed|plates\s+detached|unregistered"
     r"|trade\s+plates|transfer\s+plates|dealer\s+plates|bring\s+plates|needs?\s+plates",
@@ -40,9 +41,9 @@ MANUAL_NEG = re.compile(
 )
 
 SUMMER_TYRES_POS = re.compile(
-    r"kesärenka|kesäpyör|kesägum|ei\s+talvirenka"
-    r"|sommardäck|inga\s+vinterdäck"
-    r"|s(?:um+|mu)mer\s+t[yi]re|no\s+winter\s+t[yi]re",
+    r"kesärenka|kesäpyör|kesägum|ei\s+talvirenka|talvirenka\w*\s+ei\b"
+    r"|sommardäck|inga\s+vinterdäck|vinterdäck\w*\s+(?:inte|ej)\b"
+    r"|s(?:um+|mu)mer\s+t[yi]re|no\s+winter\s+t[yi]re|winter\s+t[yi]res?\s+not\b",
     re.IGNORECASE,
 )
 # Spare summer tyres carried inside the trunk/boot do NOT mean the car drives on summer tyres!
@@ -62,14 +63,22 @@ PAYMENT_WAIT_POS = re.compile(
 
 # --- Correction & negation helpers ---
 CORRECTION_SPLIT = re.compile(
-    r"\b(?:eiku|ei\s+kun|korjaus|anteeksi|sori|oikeastaan|eli\s+siis"
+    r"\b(?:eikun?|ei\s+kun|korjaus|anteeksi|sori|oikeastaan|eli\s+siis"
     r"|rättelse|ursäkta|förlåt|nej\s+vänta|menar"
     r"|sorry|correction|actually|wait,?\s+no|rather|i\s+mean)\b\s*:?",
     re.IGNORECASE,
 )
+DOT_BEFORE_CORRECTION = re.compile(
+    r"[.;!]\s+(?=(?:eikun?|ei\s+kun|korjaus|anteeksi|sori|oikeastaan|eli\s+siis|rättelse|ursäkta|förlåt|nej\s+vänta|menar|sorry|correction|actually|wait|rather|i\s+mean)\b)",
+    re.IGNORECASE,
+)
+REF_NOISE_RE = re.compile(
+    r"\b(?:viite|tilaus\w*|order\s*n[ro]\w*|ref(?:erence)?)\s*[:#]?\s*\d+\b",
+    re.IGNORECASE,
+)
 
 NEGATED_TIME = re.compile(
-    r"\b(?:ei|not|inte|ej)\s+(?:klo\.?\s*|kl\.?\s*|at\s+|before\s+|after\s+)?\d{1,2}(?:[.:]\d{2})?(?:\s*(?:am|pm))?",
+    r"\b(?:ei|not|inte|ej)\s+(?!ennen\b|före\b|before\b|earlier\b|aikaisemmin\b|tidigare\b)(?:klo\.?\s*|kl\.?\s*|at\s+)?\d{1,2}(?:[.:]\d{2})?(?:\s*(?:am|pm))?",
     re.IGNORECASE,
 )
 
@@ -86,8 +95,8 @@ CLAUSE_SPLIT = re.compile(
 # --- Delivery vs Pickup clause markers ---
 DELIVERY_KW = re.compile(
     r"toimit\w*|perill[äe]|perile|vastaanot\w*|luovutus\s+asiakkaalle|kohde|kohtee\w*|määränpää\w*"
-    r"|leverer\w*|leverans\w*|framme|mottag\w*|destination\w*"
-    r"|deliver\w*|arriv\w*|drop\s*-?off|receiv\w*",
+    r"|leverer\w*|leverans\w*|fram+e?m?\b|mottag\w*|på\s+plats|vara\s+där"
+    r"|desti\w*|deliver\w*|arriv\w*|drop\s*-?off|receiv\w*|be\s+there",
     re.IGNORECASE,
 )
 PICKUP_KW = re.compile(
@@ -97,11 +106,11 @@ PICKUP_KW = re.compile(
     re.IGNORECASE,
 )
 # Customer picking up AT destination ("asiakas tulee hakemaan, perillä viim...") is delivery, not driver pickup!
-CUSTOMER_FETCH_NEG = re.compile(r"asiakas\s+(?:tulee\s+)?hak\w*|kund\w*\s+hämt\w*|customer\s+(?:will\s+)?pick", re.IGNORECASE)
+CUSTOMER_FETCH_NEG = re.compile(r"asiakas\s+(?:tulee\s+)?hak\w*|kund\w*\s+hämt\w*|customer\s+(?:will\s+)?pick\w*(?:\s+it\s+up)?", re.IGNORECASE)
 
 AFTER_KW = re.compile(
-    r"jälkeen|alkaen|aikaisintaan|\bvasta\b|\bvalmis\b|auton\s+saa|voi\s+noutaa|noudettavissa"
-    r"|efter|från\s+och\s+med|och\s+framåt|tidigast|\bförst\b|\bklar\b|kan\s+hämtas"
+    r"jälkeen|alkaen|aikaisintaan|ei\s+ennen|\bvasta\b|\bvalmis\b|auton\s+saa|voi\s+noutaa|noudettavissa"
+    r"|efter|från\s+och\s+med|och\s+framåt|tidigast|inte\s+före|ej\s+före|\bförst\b|\bklar\b|kan\s+hämtas"
     r"|\bafter\b|\bfrom\b|onwards|earliest|not\s+before|no\s+earlier|\bready\b",
     re.IGNORECASE,
 )
@@ -129,7 +138,7 @@ WEEKDAY_PATTERNS_COMMON: list[tuple[int, re.Pattern[str]]] = [
     (0, re.compile(r"\b(?:maanantai\w*|\bma\b(?!\s*[-–]\s*pe)|måndag\w*|\bmån\b|monday|\bmon\b(?!\s*[-–]\s*fri))\b", re.IGNORECASE)),
     (1, re.compile(r"\b(?:tiistai\w*|\bti\b|tisdag\w*|\btis\b|tuesday|\btues?\b)\b", re.IGNORECASE)),
     (2, re.compile(r"\b(?:keskiviikko\w*|\bke\b|onsdag\w*|\bons\b|wednesday|\bwed\b)\b", re.IGNORECASE)),
-    (3, re.compile(r"\b(?:torstai\w*|torsdag\w*|\btors?\b|thursday|\bthurs?\b|\bthu\b)\b", re.IGNORECASE)),
+    (3, re.compile(r"\b(?:to?rstai\w*|torsdag\w*|\btors?\b|thursday|\bthurs?\b|\bthu\b)\b", re.IGNORECASE)),
     (4, re.compile(r"\b(?:perjantai\w*|\bpe\b|fredag\w*|\bfre\b|friday|\bfri\b)\b", re.IGNORECASE)),
     (5, re.compile(r"\b(?:lauantai\w*|\bla\b|lördag\w*|\blör\b|saturday|\bsat\b)\b", re.IGNORECASE)),
     (6, re.compile(r"\b(?:sunnuntai\w*|\bsu\b|söndag\w*|\bsön\b|sunday|\bsun\b)\b", re.IGNORECASE)),
@@ -146,7 +155,7 @@ WORD_NUMS: dict[str, int] = {
     "kaksi": 2, "kahde": 2, "kahte": 2,
     "kolme": 3,
     "neljä": 4,
-    "viisi": 5, "viide": 5, "viite": 5,
+    "viisi": 5, "viide": 5, "viiteen": 5,
     "kuusi": 6, "kuude": 6, "kuute": 6,
     "seitsemä": 7, "seiska": 7,
     "kahdeksa": 8, "kasi": 8,
@@ -300,15 +309,16 @@ def parse_note(
     arrived_day = arrived_at // DAY
     pickup_day_default = default_pickup_from // DAY
 
-    # Strip dots from known abbreviations ("viim.", "klo.", "ma.") so sentence splitting never cuts mid-clause
-    norm_text = ABBREV_DOT_GUARD.sub(r"\1", raw_text)
+    # Strip dots from known abbreviations ("viim.", "klo.", "ma.") and keep corrections in the same clause
+    norm_text = REF_NOISE_RE.sub(" ", ABBREV_DOT_GUARD.sub(r"\1", DOT_BEFORE_CORRECTION.sub(", ", raw_text)))
     clauses = [c.strip() for c in CLAUSE_SPLIT.split(norm_text) if c.strip()]
 
     for raw_clause in clauses:
         sub = [p.strip() for p in CORRECTION_SPLIT.split(raw_clause) if p.strip()]
-        if len(sub) > 1 and (DIGIT_CLOCK_RE.search(sub[-1]) or HALF_WORD_RE.search(sub[-1]) or RANGE_RE.search(sub[-1])):
+        override_day: Optional[int] = None
+        if len(sub) > 1 and (DIGIT_CLOCK_RE.search(sub[-1]) or HALF_WORD_RE.search(sub[-1]) or RANGE_RE.search(sub[-1]) or FOUR_DIGIT_CLOCK_RE.search(sub[-1])):
             prefix = ""
-            if DELIVERY_KW.search(sub[0]) and not DELIVERY_KW.search(sub[-1]):
+            if (DELIVERY_KW.search(sub[0]) or CUSTOMER_FETCH_NEG.search(sub[0])) and not (DELIVERY_KW.search(sub[-1]) or CUSTOMER_FETCH_NEG.search(sub[-1])):
                 prefix += "toimitus "
             for dpat in (DAY_PLUS_2, DAY_PLUS_1, DAY_PLUS_0):
                 dm = dpat.search(sub[0])
@@ -326,18 +336,28 @@ def parse_note(
             elif BEFORE_KW.search(sub[0]) and not (AFTER_KW.search(sub[-1]) or BEFORE_KW.search(sub[-1])):
                 prefix += "mennessä "
             clause = prefix + sub[-1]
+        elif len(sub) > 1:
+            corr_d, corr_exp = _resolve_day(sub[-1], arrived_day, arrived_day, lang=lang)
+            if corr_exp:
+                override_day = corr_d
+                clause = sub[0]
+            else:
+                clause = raw_clause
         else:
             clause = raw_clause
 
         clause_clean = NEGATED_TIME.sub(" ", clause)
+        is_cust_fetch = bool(CUSTOMER_FETCH_NEG.search(clause_clean))
         clause_for_role = CUSTOMER_FETCH_NEG.sub(" ", clause_clean)
 
-        has_del = bool(DELIVERY_KW.search(clause_for_role))
-        has_pick = bool(PICKUP_KW.search(clause_for_role))
+        has_del = bool(DELIVERY_KW.search(clause_for_role)) or is_cust_fetch
+        has_pick = bool(PICKUP_KW.search(clause_for_role)) and not is_cust_fetch
         target = "delivery" if (has_del and not has_pick) else "pickup"
 
-        base_day = (default_delivery_to // DAY) if target == "delivery" else pickup_day_default
+        base_day = max(arrived_day, pickup_day_default)
         day_idx, explicit_day = _resolve_day(clause_clean, arrived_day, base_day, lang=lang)
+        if override_day is not None:
+            day_idx, explicit_day = override_day, True
 
         # 0. Explicit "closed after HH:MM" ("kiinni klo 15 jälkeen" -> closes at 15:00!)
         cm_close = CLOSED_AFTER_RE.search(clause_clean)

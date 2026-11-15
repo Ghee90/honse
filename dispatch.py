@@ -44,11 +44,12 @@ def play_practice(world: World, level: int, world_map: WorldMap, quiet: bool = F
     while desk.now < ends_at:
         day, midnight = desk.now // DAY, (desk.now // DAY + 1) * DAY
         actions, desk.outbox = desk.outbox, []
-        step = world.advance(until=WAKE_ON, max=min(ends_at, midnight), actions=actions)
+        step = world.advance(until=WAKE_ON, max=min(ends_at, midnight, desk.now + 60), actions=actions)
         desk.read_results(actions, step.get("results", []))
         desk.now = step["now"]
         for event in step["events"]:
             desk.handle(event)
+        desk._sweep_aging_orders()
         if desk.now // DAY > day and not quiet:
             report(WEEKDAYS[day % 7], world.score())
 

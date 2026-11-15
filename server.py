@@ -195,13 +195,14 @@ class BotRunner:
 
                 while not self.stop_flag and desk.now < ends_at:
                     midnight = (desk.now // DAY + 1) * DAY
-                    target_max = min(ends_at, midnight)
+                    target_max = min(ends_at, midnight, desk.now + 60)
                     actions, desk.outbox = desk.outbox, []
                     step = w.advance(until=WAKE_ON, max=target_max, actions=actions)
                     desk.read_results(actions, step.get("results", []))
                     desk.now = step["now"]
                     for ev in step["events"]:
                         desk.handle(ev)
+                    desk._sweep_aging_orders()
 
                     with self.lock:
                         self.steps += 1
@@ -303,13 +304,14 @@ class BotRunner:
 
             while not self.stop_flag and desk.now < ends_at:
                 midnight = (desk.now // DAY + 1) * DAY
-                target_max = min(ends_at, midnight)
+                target_max = min(ends_at, midnight, desk.now + 60)
                 actions, desk.outbox = desk.outbox, []
                 step = world.advance(until=WAKE_ON, max=target_max, actions=actions)
                 desk.read_results(actions, step.get("results", []))
                 desk.now = step["now"]
                 for ev in step["events"]:
                     desk.handle(ev)
+                desk._sweep_aging_orders()
 
                 with self.lock:
                     self.steps += 1
